@@ -1,168 +1,82 @@
-const axios = require('axios');
-const { parse } = require('node-html-parser');
+const fetch = require('node-fetch');
 
 module.exports = async (req, res) => {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  const tema = req.query.tema;
+  const delka = parseInt(req.query.delka) || 3;
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+  if (!tema) {
+    return res.status(400).json({ error: 'Chybí parametr "tema"' });
   }
 
   try {
-    const { url, grokApiKey } = req.body;
+    // 1. Wikipedia search API
+    const searchRes = await fetch(
+      `https://en.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(tema)}&limit=5`
+    );
+    const searchData = await searchRes.json();
 
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
+    const validPage = searchData.pages.find(
+      (page) =>
+        page.description &&
+        !/disambiguation|Topics referred to by the same term/i.test(page.description)
+    );
+
+    if (!validPage) {
+      return res.status(404).json({ error: 'Nenalezen vhodný článek (není disambiguace).' });
     }
 
-    if (!grokApiKey) {
-      return res.status(400).json({ error: 'Grok API key is required' });
+    const bestMatchTitle = validPage.key;
+
+    // 2. Wikipedia mobile-sections API
+    const articleRes = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/mobile-sections/${encodeURIComponent(bestMatchTitle)}`
+    );
+    const articleData = await articleRes.json();
+
+    const leadText = articleData.lead?.sections?.map((s) => s.text).join('\n') || '';
+    const remainingText = articleData.remaining?.sections?.map((s) => s.text).join('\n') || '';
+    const fullText = leadText + '\n' + remainingText;
+
+    if (!fullText) {
+      return res.status(500).json({ error: 'Nepodařilo se načíst text článku z Wikipedie.' });
     }
 
-    // Extract Wikipedia article title from URL
-    const wikiMatch = url.match(/wikipedia\.org\/wiki\/(.+)/);
-    if (!wikiMatch) {
-      return res.status(400).json({ error: 'Invalid Wikipedia URL' });
-    }
+    // 3. Groq API call
+    const prompt = `
+Jsi AI sumarizátor. Shrň následující text do ${delka} vět. Použij čisté HTML bez <html> nebo <body> tagů. Text je z Wikipedie.
 
-    const articleTitle = decodeURIComponent(wikiMatch[1]);
-
-    // Fetch Wikipedia article content
-    const wikiResponse = await axios.get(`https://en.wikipedia.org/api/rest_v1/page/summary/${articleTitle}`);
-    
-    if (wikiResponse.data.extract) {
-      // If we have an extract, use it (it's already summarized)
-      const summary = wikiResponse.data.extract;
-      
-      // Format as HTML
-      const htmlSummary = `
-        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
-          <h1 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
-            ${wikiResponse.data.title}
-          </h1>
-          <p style="line-height: 1.6; color: #555; font-size: 16px;">
-            ${summary}
-          </p>
-          <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
-            <p style="margin: 0; font-size: 14px; color: #666;">
-              <strong>Source:</strong> <a href="${url}" target="_blank">Wikipedia</a>
-            </p>
-          </div>
-        </div>
-      `;
-
-      return res.status(200).json({
-        success: true,
-        title: wikiResponse.data.title,
-        summary: summary,
-        html: htmlSummary
-      });
-    }
-
-    // If no extract available, fetch full article content
-    const fullArticleResponse = await axios.get(`https://en.wikipedia.org/api/rest_v1/page/html/${articleTitle}`);
-    
-    if (fullArticleResponse.status !== 200) {
-      return res.status(404).json({ error: 'Article not found' });
-    }
-
-    // Parse HTML and extract text content
-    const root = parse(fullArticleResponse.data);
-    
-    // Remove unwanted elements
-    const unwantedSelectors = [
-      'script', 'style', 'nav', 'header', 'footer', 
-      '.mw-editsection', '.mw-references', '.reflist',
-      '.thumb', '.infobox', '.metadata', '.ambox'
-    ];
-    
-    unwantedSelectors.forEach(selector => {
-      root.querySelectorAll(selector).forEach(el => el.remove());
-    });
-
-    // Extract main content
-    const mainContent = root.querySelector('main') || root.querySelector('body');
-    if (!mainContent) {
-      return res.status(500).json({ error: 'Could not extract article content' });
-    }
-
-    // Get text content and clean it up
-    let textContent = mainContent.text;
-    
-    // Clean up the text
-    textContent = textContent
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-      .replace(/\n+/g, '\n') // Replace multiple newlines with single newline
-      .trim();
-
-    // Limit content size to avoid API limits (keep it under 50KB)
-    if (textContent.length > 45000) {
-      textContent = textContent.substring(0, 45000) + '...';
-    }
-
-    // Send to Grok API for summarization
-    const grokResponse = await axios.post('https://api.x.ai/v1/chat/completions', {
-      model: 'grok-beta',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that summarizes Wikipedia articles. Provide a concise, well-structured summary in HTML format with proper formatting, headings, and paragraphs. Keep the summary informative but concise.'
-        },
-        {
-          role: 'user',
-          content: `Please summarize this Wikipedia article about "${wikiResponse.data.title}":\n\n${textContent}`
-        }
-      ],
-      max_tokens: 2000,
-      temperature: 0.7
-    }, {
-      headers: {
-        'Authorization': `Bearer ${grokApiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const grokSummary = grokResponse.data.choices[0].message.content;
-
-    // Format the response as HTML
-    const htmlSummary = `
-      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
-          ${wikiResponse.data.title}
-        </h1>
-        <div style="line-height: 1.6; color: #555; font-size: 16px;">
-          ${grokSummary}
-        </div>
-        <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
-          <p style="margin: 0; font-size: 14px; color: #666;">
-            <strong>Source:</strong> <a href="${url}" target="_blank">Wikipedia</a>
-          </p>
-        </div>
-      </div>
+Text:
+${fullText}
     `;
 
-    return res.status(200).json({
-      success: true,
-      title: wikiResponse.data.title,
-      summary: grokSummary,
-      html: htmlSummary
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mixtral-8x7b-32768',
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+      }),
     });
 
-  } catch (error) {
-    console.error('Error:', error.message);
-    
-    if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
+    const groqData = await groqRes.json();
+    const htmlOutput = groqData.choices?.[0]?.message?.content;
+
+    if (!htmlOutput) {
+      return res.status(500).json({ error: 'Groq API nevrátilo odpověď.' });
     }
 
-    return res.status(500).json({ 
-      error: 'Failed to process the request',
-      details: error.message 
-    });
+    // Odpovíme přímo HTML
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(200).send(htmlOutput);
+
+  } catch (err) {
+    console.error('Chyba:', err);
+    return res.status(500).json({ error: 'Interní chyba serveru' });
   }
 };
