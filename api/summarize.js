@@ -8,43 +8,49 @@ export default async function handler(req, res) {
     }
   
     try {
-      // 1. Wikipedia Search API
-      const searchResponse = await fetch(
-        `https://en.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(tema)}&limit=5`
+      // 1. MediaWiki Search API (méně náchylné na blokování)
+      const searchRes = await fetch(
+        `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(tema)}&format=json`,
+        {
+          headers: {
+            'User-Agent': 'MyWikiSummarizerBot/1.0 (your-email@example.com)',
+            'Accept': 'application/json',
+          }
+        }
       );
   
-      if (!searchResponse.ok) {
-        const text = await searchResponse.text();
-        throw new Error(`Wikipedia search API error, status: ${searchResponse.status}, body: ${text}`);
+      if (!searchRes.ok) {
+        const text = await searchRes.text();
+        throw new Error(`Wikipedia search API error, status: ${searchRes.status}, body: ${text}`);
       }
   
-      const searchData = await searchResponse.json();
+      const searchData = await searchRes.json();
+      const searchResults = searchData.query.search;
   
-      const validPage = searchData.pages.find(
-        (page) =>
-          page.description &&
-          !/disambiguation|Topics referred to by the same term/i.test(page.description)
-      );
-  
-      if (!validPage) {
-        res.status(404).json({ error: 'Nenalezen vhodný článek (není disambiguace).' });
+      if (!searchResults || searchResults.length === 0) {
+        res.status(404).json({ error: 'Nenalezen vhodný článek.' });
         return;
       }
   
-      const bestMatchTitle = validPage.key;
+      const bestMatchTitle = searchResults[0].title;
   
-      // 2. Wikipedia Extracts API
-      const extractResponse = await fetch(
-        `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(bestMatchTitle)}&redirects=1`
+      // 2. Získání extractu článku (plain text)
+      const extractRes = await fetch(
+        `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(bestMatchTitle)}&redirects=1`,
+        {
+          headers: {
+            'User-Agent': 'MyWikiSummarizerBot/1.0 (your-email@example.com)',
+            'Accept': 'application/json',
+          }
+        }
       );
   
-      if (!extractResponse.ok) {
-        const text = await extractResponse.text();
-        throw new Error(`Wikipedia extract API error, status: ${extractResponse.status}, body: ${text}`);
+      if (!extractRes.ok) {
+        const text = await extractRes.text();
+        throw new Error(`Wikipedia extract API error, status: ${extractRes.status}, body: ${text}`);
       }
   
-      const extractData = await extractResponse.json();
-  
+      const extractData = await extractRes.json();
       const pages = extractData.query.pages;
       const pageId = Object.keys(pages)[0];
       const extractText = pages[pageId].extract;
@@ -54,7 +60,7 @@ export default async function handler(req, res) {
         return;
       }
   
-      // 3. Groq API
+      // 3. Groq API volání (shrnutí)
       const prompt = `
   Jsi AI sumarizátor. Shrň následující text do ${delka} vět. Použij čisté HTML bez <html> nebo <body> tagů. Text je z Wikipedie.
   
@@ -62,7 +68,7 @@ export default async function handler(req, res) {
   ${extractText}
       `;
   
-      const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
@@ -75,12 +81,12 @@ export default async function handler(req, res) {
         }),
       });
   
-      if (!groqResponse.ok) {
-        const errText = await groqResponse.text();
-        throw new Error(`Groq API error: ${groqResponse.status} ${errText}`);
+      if (!groqRes.ok) {
+        const errText = await groqRes.text();
+        throw new Error(`Groq API error: ${groqRes.status} ${errText}`);
       }
   
-      const groqData = await groqResponse.json();
+      const groqData = await groqRes.json();
       const htmlOutput = groqData.choices?.[0]?.message?.content;
   
       if (!htmlOutput) {
