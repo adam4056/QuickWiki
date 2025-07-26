@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
     );
     const searchData = searchRes.data;
 
-    // Vybereme první stránku, která není disambiguace
+    // Najdeme relevantní stránku, která není disambiguace
     const validPage = searchData.pages.find(
       (page) =>
         page.description &&
@@ -28,26 +28,32 @@ module.exports = async (req, res) => {
 
     const bestMatchTitle = validPage.key;
 
-    // 2. Wikipedia mobile-sections API
-    const articleRes = await axios.get(
-      `https://en.wikipedia.org/api/rest_v1/page/mobile-sections/${encodeURIComponent(bestMatchTitle)}`
-    );
-    const articleData = articleRes.data;
+    // 2. Wikipedia API - Extracts (plain text) - místo mobile-sections
+    const extractRes = await axios.get('https://en.wikipedia.org/w/api.php', {
+      params: {
+        action: 'query',
+        prop: 'extracts',
+        explaintext: 1,
+        format: 'json',
+        titles: bestMatchTitle,
+        redirects: 1,
+      },
+    });
 
-    const leadText = articleData.lead?.sections?.map((s) => s.text).join('\n') || '';
-    const remainingText = articleData.remaining?.sections?.map((s) => s.text).join('\n') || '';
-    const fullText = leadText + '\n' + remainingText;
+    const pages = extractRes.data.query.pages;
+    const pageId = Object.keys(pages)[0];
+    const extractText = pages[pageId].extract;
 
-    if (!fullText) {
+    if (!extractText) {
       return res.status(500).json({ error: 'Nepodařilo se načíst text článku z Wikipedie.' });
     }
 
-    // 3. Groq API call
+    // 3. Groq API call (AI sumarizace)
     const prompt = `
 Jsi AI sumarizátor. Shrň následující text do ${delka} vět. Použij čisté HTML bez <html> nebo <body> tagů. Text je z Wikipedie.
 
 Text:
-${fullText}
+${extractText}
     `;
 
     const groqRes = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
