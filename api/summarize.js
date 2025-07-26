@@ -12,11 +12,14 @@ export default async function handler(req, res) {
       const searchResponse = await fetch(
         `https://en.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(tema)}&limit=5`
       );
-      if (!searchResponse.ok) throw new Error('Wikipedia search API error');
+  
+      if (!searchResponse.ok) {
+        const text = await searchResponse.text();
+        throw new Error(`Wikipedia search API error, status: ${searchResponse.status}, body: ${text}`);
+      }
   
       const searchData = await searchResponse.json();
   
-      // Najdeme první validní stránku (ne disambiguace)
       const validPage = searchData.pages.find(
         (page) =>
           page.description &&
@@ -30,11 +33,15 @@ export default async function handler(req, res) {
   
       const bestMatchTitle = validPage.key;
   
-      // 2. Wikipedia Extracts API - čistý text
+      // 2. Wikipedia Extracts API
       const extractResponse = await fetch(
         `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(bestMatchTitle)}&redirects=1`
       );
-      if (!extractResponse.ok) throw new Error('Wikipedia extract API error');
+  
+      if (!extractResponse.ok) {
+        const text = await extractResponse.text();
+        throw new Error(`Wikipedia extract API error, status: ${extractResponse.status}, body: ${text}`);
+      }
   
       const extractData = await extractResponse.json();
   
@@ -47,7 +54,7 @@ export default async function handler(req, res) {
         return;
       }
   
-      // 3. Groq API - sumarizace
+      // 3. Groq API
       const prompt = `
   Jsi AI sumarizátor. Shrň následující text do ${delka} vět. Použij čisté HTML bez <html> nebo <body> tagů. Text je z Wikipedie.
   
