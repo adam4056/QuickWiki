@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const axios = require('axios');
 
 module.exports = async (req, res) => {
   const tema = req.query.tema;
@@ -10,11 +10,12 @@ module.exports = async (req, res) => {
 
   try {
     // 1. Wikipedia search API
-    const searchRes = await fetch(
+    const searchRes = await axios.get(
       `https://en.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(tema)}&limit=5`
     );
-    const searchData = await searchRes.json();
+    const searchData = searchRes.data;
 
+    // Vybereme první stránku, která není disambiguace
     const validPage = searchData.pages.find(
       (page) =>
         page.description &&
@@ -28,10 +29,10 @@ module.exports = async (req, res) => {
     const bestMatchTitle = validPage.key;
 
     // 2. Wikipedia mobile-sections API
-    const articleRes = await fetch(
+    const articleRes = await axios.get(
       `https://en.wikipedia.org/api/rest_v1/page/mobile-sections/${encodeURIComponent(bestMatchTitle)}`
     );
-    const articleData = await articleRes.json();
+    const articleData = articleRes.data;
 
     const leadText = articleData.lead?.sections?.map((s) => s.text).join('\n') || '';
     const remainingText = articleData.remaining?.sections?.map((s) => s.text).join('\n') || '';
@@ -49,29 +50,26 @@ Text:
 ${fullText}
     `;
 
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
+    const groqRes = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+      model: 'mixtral-8x7b-32768',
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+    }, {
       headers: {
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
-        messages: [
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-      }),
     });
 
-    const groqData = await groqRes.json();
+    const groqData = groqRes.data;
     const htmlOutput = groqData.choices?.[0]?.message?.content;
 
     if (!htmlOutput) {
       return res.status(500).json({ error: 'Groq API nevrátilo odpověď.' });
     }
 
-    // Odpovíme přímo HTML
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(200).send(htmlOutput);
 
