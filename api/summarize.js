@@ -1,73 +1,68 @@
 export default async function handler(req, res) {
-    const tema = req.query.tema;
-    const delka = parseInt(req.query.delka) || 3;
-  
-    if (!tema) {
-      res.status(400).json({ error: 'Chybí parametr "tema"' });
+    const topic = req.query.topic;
+    const sentenceCount = parseInt(req.query.length) || 3;
+
+    if (!topic) {
+      res.status(400).json({ error: 'Missing parameter "topic"' });
       return;
     }
-  
+
     try {
-      // 1. MediaWiki Search API (méně náchylné na blokování)
+      // 1. MediaWiki Search API (less prone to blocking)
       const searchRes = await fetch(
-        `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(tema)}&format=json`,
+        `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json`,
         {
           headers: {
-            'User-Agent': 'MyWikiSummarizerBot/1.0 (your-email@example.com)',
+            'User-Agent': 'QuickWiki/1.0',
             'Accept': 'application/json',
           }
         }
       );
-  
+
       if (!searchRes.ok) {
         const text = await searchRes.text();
         throw new Error(`Wikipedia search API error, status: ${searchRes.status}, body: ${text}`);
       }
-  
+
       const searchData = await searchRes.json();
       const searchResults = searchData.query.search;
-  
+
       if (!searchResults || searchResults.length === 0) {
-        res.status(404).json({ error: 'Nenalezen vhodný článek.' });
+        res.status(404).json({ error: 'No suitable article found.' });
         return;
       }
-  
+
       const bestMatchTitle = searchResults[0].title;
-  
-      // 2. Získání extractu článku (plain text)
+
+      // 2. Get article extract (plain text)
       const extractRes = await fetch(
         `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(bestMatchTitle)}&redirects=1`,
         {
           headers: {
-            'User-Agent': 'MyWikiSummarizerBot/1.0 (your-email@example.com)',
+            'User-Agent': 'QuickWiki/1.0',
             'Accept': 'application/json',
           }
         }
       );
-  
+
       if (!extractRes.ok) {
         const text = await extractRes.text();
         throw new Error(`Wikipedia extract API error, status: ${extractRes.status}, body: ${text}`);
       }
-  
+
       const extractData = await extractRes.json();
       const pages = extractData.query.pages;
       const pageId = Object.keys(pages)[0];
       const extractText = pages[pageId].extract;
-  
+
       if (!extractText) {
-        res.status(500).json({ error: 'Nepodařilo se načíst text článku z Wikipedie.' });
+        res.status(500).json({ error: 'Failed to load article text from Wikipedia.' });
         return;
       }
-  
-      // 3. Groq API volání (shrnutí)
-      const prompt = `
-  Jsi AI sumarizátor. Shrň následující text do ${delka} vět. Použij čisté HTML bez <html> nebo <body> tagů. Text je z Wikipedie.
-  
-  Text:
-  ${extractText}
-      `;
-  
+
+      // 3. Groq API call (summarization)
+      const systemPrompt = `You are an AI summarizer. Summarize the following text in ${sentenceCount} sentences. Use clean HTML without <html> or <body> tags. The text is from Wikipedia.`;
+      
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -76,30 +71,33 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: [{ role: 'user', content: prompt }],
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: extractText }
+          ],
           temperature: 0.7,
         }),
       });
-  
+
       if (!groqRes.ok) {
         const errText = await groqRes.text();
         throw new Error(`Groq API error: ${groqRes.status} ${errText}`);
       }
-  
+
       const groqData = await groqRes.json();
       const htmlOutput = groqData.choices?.[0]?.message?.content;
-  
+
       if (!htmlOutput) {
-        res.status(500).json({ error: 'Groq API nevrátilo odpověď.' });
+        res.status(500).json({ error: 'Groq API did not return a response.' });
         return;
       }
-  
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.status(200).send(htmlOutput);
-  
+
+      const originalUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(bestMatchTitle.replace(/ /g, '_'))}`;
+      res.status(200).json({ summary: htmlOutput, originalUrl });
+
     } catch (err) {
-      console.error('Chyba:', err);
-      res.status(500).json({ error: 'Interní chyba serveru', detail: err.message });
+      console.error('Error:', err);
+      res.status(500).json({ error: 'Internal server error', detail: err.message });
     }
   }
   
