@@ -1,1 +1,25 @@
 @import "tailwindcss";
+
+/* Custom base styles */
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .gradient-text {
+    background: linear-gradient(135deg, #374151 0%, #6b7280 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .dark .gradient-text {
+    background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
