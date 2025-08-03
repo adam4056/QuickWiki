@@ -8,59 +8,31 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize Lucide icons
 function initializeLucideIcons() {
     if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
+        try {
+            lucide.createIcons();
+        } catch (error) {
+            console.warn('Failed to initialize Lucide icons:', error);
+        }
+    } else {
+        console.warn('Lucide library not loaded');
     }
 }
 
 // Theme Management
 class ThemeManager {
     constructor() {
-        this.themeToggle = document.getElementById('theme-toggle');
         this.html = document.documentElement;
         this.init();
     }
 
     init() {
-        // Check for saved theme preference or default to system preference
-        const savedTheme = localStorage.getItem('theme');
-        
-        if (savedTheme) {
-            // User has manually set a theme
-            this.setTheme(savedTheme);
-        } else {
-            // Use system preference
-            this.setSystemTheme();
-        }
+        // Always use system preference
+        this.setSystemTheme();
 
         // Listen for system theme changes
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         mediaQuery.addEventListener('change', (e) => {
-            if (!localStorage.getItem('theme')) {
-                // Only auto-switch if user hasn't manually set a theme
-                this.setSystemTheme();
-            }
-        });
-
-        // Click handler for theme toggle
-        this.themeToggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.toggleTheme();
-        });
-
-        // Long press to reset to system theme
-        let longPressTimer;
-        this.themeToggle.addEventListener('mousedown', (e) => {
-            longPressTimer = setTimeout(() => {
-                this.resetToSystemTheme();
-            }, 1000);
-        });
-
-        this.themeToggle.addEventListener('mouseup', () => {
-            clearTimeout(longPressTimer);
-        });
-
-        this.themeToggle.addEventListener('mouseleave', () => {
-            clearTimeout(longPressTimer);
+            this.setSystemTheme();
         });
     }
 
@@ -75,26 +47,6 @@ class ThemeManager {
         } else {
             this.html.classList.remove('dark');
         }
-        
-        // Reinitialize icons after theme change
-        setTimeout(() => {
-            initializeLucideIcons();
-        }, 100);
-    }
-
-    toggleTheme() {
-        const isDark = this.html.classList.contains('dark');
-        const newTheme = isDark ? 'light' : 'dark';
-        
-        // Save manual preference
-        localStorage.setItem('theme', newTheme);
-        
-        this.setTheme(newTheme);
-    }
-
-    resetToSystemTheme() {
-        localStorage.removeItem('theme');
-        this.setSystemTheme();
     }
 }
 
