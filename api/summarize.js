@@ -61,7 +61,7 @@ export default async function handler(req, res) {
       }
 
       // 3. Groq API call (summarization)
-      const systemPrompt = `You are an AI summarizer. Summarize the following text in ${sentenceCount} sentences. Use clean HTML without <html> or <body> tags. The text is from Wikipedia.`;
+      const systemPrompt = `You are an AI summarizer. Summarize the following text in ${sentenceCount} sentences (aim for 15-25 words per sentence) using ONLY the provided information. Return clean HTML without <html> or <body> tags. No additional commentary. Text: ${inputText}`;
       
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
