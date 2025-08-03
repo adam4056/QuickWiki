@@ -421,9 +421,25 @@ class QuickWikiApp {
 
         } catch (error) {
             this.hideAllStates();
-            this.elements.errorMessage.textContent = error.message;
+            
+            // Handle rate limiting specifically
+            if (error.message.includes('Rate limit') || error.message.includes('overloaded')) {
+                this.elements.errorMessage.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-amber-600 mb-2">
+                            <i data-lucide="clock" class="w-8 h-8 mx-auto"></i>
+                        </div>
+                        <p class="font-medium">Service temporarily overloaded</p>
+                        <p class="text-sm text-gray-600 mt-1">Please try again in a few seconds</p>
+                    </div>
+                `;
+                toastManager.show('Please wait', 'Service is busy, try again in a moment', 'warning');
+            } else {
+                this.elements.errorMessage.textContent = error.message;
+                toastManager.show('Error', error.message, 'error');
+            }
+            
             this.elements.errorState.classList.remove('hidden');
-            toastManager.show('Error', error.message, 'error');
         } finally {
             // Reset button state
             this.elements.searchBtn.innerHTML = `

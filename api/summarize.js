@@ -61,7 +61,7 @@ export default async function handler(req, res) {
       }
 
       // 3. Groq API call (summarization)
-      const systemPrompt = `You are an AI summarizer. Summarize the following text in ${sentenceCount} sentences (aim for 15-25 words per sentence) using ONLY the provided information. Return clean HTML without <html> or <body> tags. No additional commentary. Text: ${inputText}`;
+      const systemPrompt = `You are an AI summarizer. Summarize the following text in ${sentenceCount} sentences (aim for 15-25 words per sentence) using ONLY the provided information. Return clean HTML without <html> or <body> tags. No additional commentary.`;
       
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -81,6 +81,19 @@ export default async function handler(req, res) {
 
       if (!groqRes.ok) {
         const errText = await groqRes.text();
+        
+        // Handle rate limiting specifically
+        if (groqRes.status === 429) {
+          const errorData = JSON.parse(errText);
+          const retryAfter = errorData.error?.retry_after || 5;
+          res.status(429).json({ 
+            error: 'Rate limit exceeded. Please try again in a few seconds.',
+            retryAfter: retryAfter,
+            detail: 'The AI service is temporarily overloaded.'
+          });
+          return;
+        }
+        
         throw new Error(`Groq API error: ${groqRes.status} ${errText}`);
       }
 
@@ -96,8 +109,30 @@ export default async function handler(req, res) {
       res.status(200).json({ summary: htmlOutput, originalUrl });
 
     } catch (err) {
-      console.error('Error:', err);
-      res.status(500).json({ error: 'Internal server error', detail: err.message });
+      console.error('Error in summarize API:', err);
+      
+      // Handle specific error types
+      if (err.message.includes('Rate limit')) {
+        res.status(429).json({ 
+          error: 'Service temporarily overloaded. Please try again in a few seconds.',
+          detail: err.message
+        });
+      } else if (err.message.includes('Wikipedia')) {
+        res.status(503).json({ 
+          error: 'Wikipedia service temporarily unavailable',
+          detail: err.message
+        });
+      } else if (err.message.includes('Groq API')) {
+        res.status(503).json({ 
+          error: 'AI summarization service temporarily unavailable',
+          detail: err.message
+        });
+      } else {
+        res.status(500).json({ 
+          error: 'Internal server error', 
+          detail: err.message 
+        });
+      }
     }
   }
   
