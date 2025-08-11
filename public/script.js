@@ -237,30 +237,6 @@ class ToastManager {
     }
 }
 
-// Statistics Manager
-class StatsManager {
-    constructor() {
-        this.cacheHits = 0;
-        this.totalSearches = 0;
-        this.cacheRateElement = document.getElementById('cache-rate');
-    }
-
-    incrementCacheHits() {
-        this.cacheHits++;
-        this.updateCacheRate();
-    }
-
-    incrementTotalSearches() {
-        this.totalSearches++;
-        this.updateCacheRate();
-    }
-
-    updateCacheRate() {
-        const rate = this.totalSearches > 0 ? Math.round((this.cacheHits / this.totalSearches) * 100) : 0;
-        this.cacheRateElement.textContent = `${rate}%`;
-    }
-}
-
 // Main QuickWiki Application
 class QuickWikiApp {
     constructor() {
