@@ -476,7 +476,6 @@ function initializeApp() {
         cacheManager = new CacheManager();
         historyManager = new HistoryManager();
         toastManager = new ToastManager();
-        statsManager = new StatsManager();
         quickWikiApp = new QuickWikiApp();
         
         // Initialize Lucide icons
