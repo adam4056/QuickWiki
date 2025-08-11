@@ -216,7 +216,8 @@ class ToastManager {
         const iconMap = {
             success: '<i data-lucide="check-circle" class="w-5 h-5 text-green-500 dark:text-green-400"></i>',
             error: '<i data-lucide="x-circle" class="w-5 h-5 text-red-500 dark:text-red-400"></i>',
-            info: '<i data-lucide="info" class="w-5 h-5 text-blue-500 dark:text-blue-400"></i>'
+            info: '<i data-lucide="info" class="w-5 h-5 text-blue-500 dark:text-blue-400"></i>',
+            warning: '<i data-lucide="alert-triangle" class="w-5 h-5 text-amber-500 dark:text-amber-400"></i>'
         };
         
         this.toastIcon.innerHTML = iconMap[type] || iconMap.success;
@@ -338,12 +339,9 @@ class QuickWikiApp {
     }
 
     async performSearch(topic, length, fromHistory = false) {
-        statsManager.incrementTotalSearches();
-        
         // Check cache first
         const cached = cacheManager.get(topic, length);
         if (cached) {
-            statsManager.incrementCacheHits();
             this.displayResult(topic, length, cached.summary, cached.originalUrl, true);
             
             // Add to history if not from history
@@ -465,23 +463,6 @@ let themeManager;
 let cacheManager;
 let historyManager;
 let toastManager;
-let statsManager;
 let quickWikiApp;
 
 // Initialize the application
-function initializeApp() {
-    try {
-        // Initialize all managers and the main app
-        themeManager = new ThemeManager();
-        cacheManager = new CacheManager();
-        historyManager = new HistoryManager();
-        toastManager = new ToastManager();
-        quickWikiApp = new QuickWikiApp();
-        
-        // Initialize Lucide icons
-        initializeLucideIcons();
-        
-    } catch (error) {
-        console.error('Failed to initialize application:', error);
-    }
-}
