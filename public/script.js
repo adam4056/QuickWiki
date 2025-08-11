@@ -466,3 +466,21 @@ let toastManager;
 let quickWikiApp;
 
 // Initialize the application
+function initializeApp() {
+    try {
+        // Initialize all managers and the main app
+        themeManager = new ThemeManager();
+        cacheManager = new CacheManager();
+        historyManager = new HistoryManager();
+        toastManager = new ToastManager();
+        quickWikiApp = new QuickWikiApp();
+        
+        // Initialize Lucide icons
+        initializeLucideIcons();
+        
+        console.log('QuickWiki application initialized successfully');
+        
+    } catch (error) {
+        console.error('Failed to initialize application:', error);
+    }
+}
