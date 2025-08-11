@@ -1,20 +1,15 @@
 // QuickWiki JavaScript - Production Version
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
-});
-
 // Initialize Lucide icons
 function initializeLucideIcons() {
-    if (typeof lucide !== 'undefined') {
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
         try {
             lucide.createIcons();
         } catch (error) {
             console.warn('Failed to initialize Lucide icons:', error);
         }
     } else {
-        console.warn('Lucide library not loaded');
+        console.warn('Lucide library not loaded or createIcons not available');
     }
 }
 
@@ -421,7 +416,10 @@ class QuickWikiApp {
                 Search and summarize
             `;
             this.elements.searchBtn.disabled = false;
-            initializeLucideIcons();
+            // Only initialize icons if lucide is available
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                initializeLucideIcons();
+            }
         }
     }
 
@@ -454,7 +452,10 @@ class QuickWikiApp {
         }
         
         this.elements.resultCard.classList.remove('hidden');
-        initializeLucideIcons();
+        // Only initialize icons if lucide is available
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            initializeLucideIcons();
+        }
     }
 }
 
@@ -475,8 +476,10 @@ function initializeApp() {
         toastManager = new ToastManager();
         quickWikiApp = new QuickWikiApp();
         
-        // Initialize Lucide icons
-        initializeLucideIcons();
+        // Initialize Lucide icons only if available
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            initializeLucideIcons();
+        }
         
         console.log('QuickWiki application initialized successfully');
         
@@ -484,3 +487,8 @@ function initializeApp() {
         console.error('Failed to initialize application:', error);
     }
 }
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initializeApp();
+});
