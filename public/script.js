@@ -8,40 +8,25 @@ function initializeLucideIcons() {
         } catch (error) {
             console.warn('Failed to initialize Lucide icons:', error);
         }
-    } else {
-        console.warn('Lucide library not loaded or createIcons not available');
     }
 }
 
-// Theme Management
+// Theme Management - Automatic (System Preference)
 class ThemeManager {
     constructor() {
-        this.html = document.documentElement;
         this.init();
     }
 
     init() {
-        // Always use system preference
-        this.setSystemTheme();
-
-        // Listen for system theme changes
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        mediaQuery.addEventListener('change', (e) => {
-            this.setSystemTheme();
-        });
-    }
-
-    setSystemTheme() {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        this.setTheme(isDark ? 'dark' : 'light');
-    }
-
-    setTheme(theme) {
-        if (theme === 'dark') {
-            this.html.classList.add('dark');
-        } else {
-            this.html.classList.remove('dark');
-        }
+        const updateTheme = () => {
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        };
+        updateTheme();
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme);
     }
 }
 
@@ -49,7 +34,7 @@ class ThemeManager {
 class CacheManager {
     constructor() {
         this.cache = JSON.parse(localStorage.getItem('quickwiki-cache') || '{}');
-        this.maxAge = 24 * 60 * 60 * 1000; // 24 hours
+        this.maxAge = 24 * 60 * 60 * 1000;
         this.maxItems = 50;
     }
 
@@ -60,37 +45,19 @@ class CacheManager {
     get(topic, length) {
         const key = this.getCacheKey(topic, length);
         const cached = this.cache[key];
-        
-        if (cached && Date.now() - cached.timestamp < this.maxAge) {
-            return cached;
-        }
-        
-        // Remove expired cache
-        if (cached) {
-            delete this.cache[key];
-            this.save();
-        }
-        
+        if (cached && Date.now() - cached.timestamp < this.maxAge) return cached;
+        if (cached) { delete this.cache[key]; this.save(); }
         return null;
     }
 
     set(topic, length, summary, originalUrl) {
         const key = this.getCacheKey(topic, length);
-        this.cache[key] = {
-            summary,
-            originalUrl,
-            timestamp: Date.now()
-        };
-        
-        // Keep only last 50 cached items
+        this.cache[key] = { summary, originalUrl, timestamp: Date.now() };
         const keys = Object.keys(this.cache);
         if (keys.length > this.maxItems) {
             const sortedKeys = keys.sort((a, b) => this.cache[a].timestamp - this.cache[b].timestamp);
-            for (let i = 0; i < keys.length - this.maxItems; i++) {
-                delete this.cache[sortedKeys[i]];
-            }
+            for (let i = 0; i < keys.length - this.maxItems; i++) delete this.cache[sortedKeys[i]];
         }
-        
         this.save();
     }
 
@@ -107,39 +74,36 @@ class HistoryManager {
         this.historyPanel = document.getElementById('history-panel');
         this.historyList = document.getElementById('history-list');
         this.clearHistoryBtn = document.getElementById('clear-history');
-        
         this.init();
     }
 
     init() {
-        this.clearHistoryBtn.addEventListener('click', () => {
-            this.clear();
-        });
+        if (this.clearHistoryBtn) this.clearHistoryBtn.addEventListener('click', () => this.clear());
         this.render();
     }
 
     add(topic, length) {
-        const historyItem = {
-            id: Date.now().toString(),
-            topic,
-            length,
-            timestamp: new Date().toISOString()
-        };
-        
+        const historyItem = { id: Date.now().toString(), topic, length, timestamp: new Date().toISOString() };
+        this.history = this.history.filter(h => h.topic.toLowerCase() !== topic.toLowerCase());
         this.history.unshift(historyItem);
         this.history = this.history.slice(0, this.maxItems);
         this.save();
         this.render();
     }
 
+    remove(id, e) {
+        if (e) e.stopPropagation();
+        this.history = this.history.filter(h => h.id !== id);
+        this.save();
+        this.render();
+        toastManager.show('Removed', 'Item removed from history.');
+    }
+
     clear() {
         this.history = [];
         this.save();
         this.render();
-        
-        if (typeof toastManager !== 'undefined') {
-            toastManager.show('History cleared', 'Search history has been successfully cleared.');
-        }
+        toastManager.show('Cleared', 'History has been cleared.');
     }
 
     save() {
@@ -147,54 +111,31 @@ class HistoryManager {
     }
 
     render() {
-        if (this.history.length === 0) {
-            this.historyPanel.classList.add('hidden');
+        if (!this.history || this.history.length === 0) {
+            if (this.historyPanel) this.historyPanel.classList.add('hidden');
             return;
         }
-        
-        this.historyPanel.classList.remove('hidden');
-        this.historyList.innerHTML = '';
-        
-        this.history.slice(0, 5).forEach(item => {
-            const historyItem = document.createElement('div');
-            const cached = cacheManager.get(item.topic, item.length);
-            const cacheIcon = cached ? '<i data-lucide="zap" class="w-3 h-3 text-green-500 dark:text-green-400"></i>' : '';
-            
-            historyItem.className = 'flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-blue-500/50 cursor-pointer transition-colors duration-200 shadow-sm';
-            historyItem.onclick = () => quickWikiApp.performSearch(item.topic, item.length, true);
-            
-            historyItem.innerHTML = `
-                <div class="flex-1 min-w-0">
-                    <p class="font-medium text-sm truncate text-gray-900 dark:text-white">${item.topic}</p>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="px-2 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-400 rounded-full transition-colors duration-200 shadow-sm">
-                            ${item.length} sentences
-                        </span>
-                        <div class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            <i data-lucide="clock" class="w-3 h-3"></i>
-                            ${this.formatTimeAgo(new Date(item.timestamp))}
-                        </div>
-                        ${cacheIcon}
+        if (this.historyPanel) this.historyPanel.classList.remove('hidden');
+        if (this.historyList) {
+            this.historyList.innerHTML = '';
+            this.history.forEach(item => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'flex items-center justify-between p-4 rounded-xl bg-current/[0.03] border border-current/[0.05] hover:bg-current/[0.06] cursor-pointer transition-all active:scale-[0.98] group animate-fade-in';
+                historyItem.onclick = () => quickWikiApp.performSearch(item.topic, item.length, true);
+                historyItem.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-sm truncate opacity-80 group-hover:opacity-100">${item.topic}</p>
+                        <p class="text-[10px] uppercase tracking-widest opacity-30 mt-1">${item.length} sentences</p>
                     </div>
-                </div>
-            `;
-            this.historyList.appendChild(historyItem);
-        });
+                    <div class="flex items-center gap-4">
+                        <i data-lucide="trash-2" class="w-4 h-4 opacity-0 group-hover:opacity-30 hover:!opacity-100 hover:text-red-500 transition-all p-1" onclick="historyManager.remove('${item.id}', event)"></i>
+                        <i data-lucide="chevron-right" class="w-4 h-4 opacity-20 group-hover:opacity-50"></i>
+                    </div>
+                `;
+                this.historyList.appendChild(historyItem);
+            });
+        }
         initializeLucideIcons();
-    }
-
-    formatTimeAgo(date) {
-        const now = new Date();
-        const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-        
-        if (diffInMinutes < 1) return 'Just now';
-        if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-        
-        const diffInHours = Math.floor(diffInMinutes / 60);
-        if (diffInHours < 24) return `${diffInHours} h ago`;
-        
-        const diffInDays = Math.floor(diffInHours / 24);
-        return `${diffInDays} days ago`;
     }
 }
 
@@ -204,32 +145,21 @@ class ToastManager {
         this.toast = document.getElementById('toast');
         this.toastIcon = document.getElementById('toast-icon');
         this.toastTitle = document.getElementById('toast-title');
-        this.toastMessage = document.getElementById('toast-message');
     }
 
-    show(title, message, type = 'success') {
-        const iconMap = {
-            success: '<i data-lucide="check-circle" class="w-5 h-5 text-green-500 dark:text-green-400"></i>',
-            error: '<i data-lucide="x-circle" class="w-5 h-5 text-red-500 dark:text-red-400"></i>',
-            info: '<i data-lucide="info" class="w-5 h-5 text-blue-500 dark:text-blue-400"></i>',
-            warning: '<i data-lucide="alert-triangle" class="w-5 h-5 text-amber-500 dark:text-amber-400"></i>'
+    show(title, type = 'success') {
+        const icons = {
+            success: '<i data-lucide="check" class="w-4 h-4"></i>',
+            error: '<i data-lucide="x" class="w-4 h-4"></i>',
+            info: '<i data-lucide="info" class="w-4 h-4"></i>'
         };
-        
-        this.toastIcon.innerHTML = iconMap[type] || iconMap.success;
-        this.toastTitle.textContent = title;
-        this.toastMessage.textContent = message;
-        
-        // Show toast by removing translate-x-full, opacity-0, and pointer-events-none classes
-        this.toast.classList.remove('translate-x-full', 'opacity-0', 'pointer-events-none');
-        
-        setTimeout(() => {
-            initializeLucideIcons();
-        }, 100);
-        
-        // Hide toast after 3 seconds
-        setTimeout(() => {
-            this.toast.classList.add('translate-x-full', 'opacity-0', 'pointer-events-none');
-        }, 3000);
+        if (this.toastIcon) this.toastIcon.innerHTML = icons[type] || icons.success;
+        if (this.toastTitle) this.toastTitle.textContent = title;
+        if (this.toast) {
+            this.toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => initializeLucideIcons(), 100);
+            setTimeout(() => this.toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none'), 3000);
+        }
     }
 }
 
@@ -237,8 +167,6 @@ class ToastManager {
 class QuickWikiApp {
     constructor() {
         this.currentResult = null;
-        
-        // Get DOM elements
         this.elements = {
             heroSection: document.getElementById('hero-section'),
             searchForm: document.getElementById('search-form'),
@@ -260,7 +188,6 @@ class QuickWikiApp {
             shareBtn: document.getElementById('share-btn'),
             wikiLink: document.getElementById('wiki-link')
         };
-        
         this.init();
     }
 
@@ -269,226 +196,127 @@ class QuickWikiApp {
     }
 
     bindEvents() {
-        // Advanced settings toggle
-        this.elements.toggleAdvanced.addEventListener('click', () => {
-            this.elements.advancedSettings.classList.toggle('hidden');
+        if (this.elements.toggleAdvanced) this.elements.toggleAdvanced.addEventListener('click', () => this.elements.advancedSettings.classList.toggle('hidden'));
+        
+        // Custom Length Selector
+        const lengthOpts = document.querySelectorAll('.length-opt');
+        const lengthInput = document.getElementById('length');
+        lengthOpts.forEach(opt => {
+            opt.addEventListener('click', () => {
+                lengthOpts.forEach(o => o.classList.remove('bg-current/10'));
+                opt.classList.add('bg-current/10');
+                if (lengthInput) lengthInput.value = opt.dataset.value;
+            });
         });
 
-        // Search form submission
-        this.elements.searchForm.addEventListener('submit', (e) => {
+        if (this.elements.searchForm) this.elements.searchForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const topic = this.elements.topicInput.value.trim();
-            const length = parseInt(this.elements.lengthSelect.value);
-            
-            if (topic) {
-                this.performSearch(topic, length);
-            }
+            const length = parseInt(lengthInput.value);
+            if (topic) this.performSearch(topic, length);
         });
-
-        // Retry button
-        this.elements.retryBtn.addEventListener('click', () => {
-            if (this.currentResult) {
-                this.performSearch(this.currentResult.topic, this.currentResult.sentenceCount);
-            }
+        if (this.elements.retryBtn) this.elements.retryBtn.addEventListener('click', () => {
+            if (this.currentResult) this.performSearch(this.currentResult.topic, this.currentResult.sentenceCount);
         });
-
-        // Copy button
-        this.elements.copyBtn.addEventListener('click', async () => {
+        if (this.elements.copyBtn) this.elements.copyBtn.addEventListener('click', async () => {
             if (this.currentResult) {
                 try {
                     await navigator.clipboard.writeText(this.currentResult.summary.replace(/<[^>]*>/g, ''));
-                    toastManager.show('Copied!', 'Summary has been copied to clipboard.');
-                } catch (error) {
-                    toastManager.show('Error', 'Failed to copy text.', 'error');
-                }
+                    toastManager.show('Copied');
+                } catch (e) { toastManager.show('Error', 'error'); }
             }
         });
-
-        // Share button
-        this.elements.shareBtn.addEventListener('click', async () => {
+        if (this.elements.shareBtn) this.elements.shareBtn.addEventListener('click', async () => {
             if (navigator.share && this.currentResult) {
                 try {
-                    await navigator.share({
-                        title: `QuickWiki summary: ${this.currentResult.topic}`,
-                        text: this.currentResult.summary.replace(/<[^>]*>/g, ''),
-                        url: window.location.href,
-                    });
-                } catch (error) {
-                    // Share cancelled or failed
-                }
+                    await navigator.share({ title: `QuickWiki: ${this.currentResult.topic}`, text: this.currentResult.summary.replace(/<[^>]*>/g, ''), url: window.location.href });
+                } catch (e) {}
             } else {
                 try {
                     await navigator.clipboard.writeText(window.location.href);
-                    toastManager.show('Link copied!', 'Link to this page has been copied to clipboard.');
-                } catch (error) {
-                    toastManager.show('Error', 'Failed to copy link.', 'error');
-                }
+                    toastManager.show('Link Copied');
+                } catch (e) {}
             }
         });
     }
 
     hideAllStates() {
-        this.elements.loadingState.classList.add('hidden');
-        this.elements.errorState.classList.add('hidden');
-        this.elements.resultCard.classList.add('hidden');
+        if (this.elements.loadingState) this.elements.loadingState.classList.add('hidden');
+        if (this.elements.errorState) this.elements.errorState.classList.add('hidden');
+        if (this.elements.resultCard) this.elements.resultCard.classList.add('hidden');
     }
 
     async performSearch(topic, length, fromHistory = false) {
-        // Check cache first
         const cached = cacheManager.get(topic, length);
         if (cached) {
             this.displayResult(topic, length, cached.summary, cached.originalUrl, true);
-            
-            // Add to history if not from history
-            if (!fromHistory) {
-                historyManager.add(topic, length);
-            }
-            toastManager.show('Success!', `Summary for "${topic}" was loaded from cache.`);
+            if (!fromHistory) historyManager.add(topic, length);
             return;
         }
 
         this.hideAllStates();
-        this.elements.heroSection.classList.add('hidden');
-        this.elements.loadingState.classList.remove('hidden');
-
-        // Update button state
-        this.elements.searchBtn.innerHTML = `
-            <div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            Processing...
-        `;
-        this.elements.searchBtn.disabled = true;
+        if (this.elements.heroSection) this.elements.heroSection.classList.add('hidden');
+        if (this.elements.loadingState) this.elements.loadingState.classList.remove('hidden');
+        if (this.elements.searchBtn) {
+            this.elements.searchBtn.disabled = true;
+            this.elements.searchBtn.textContent = '...';
+        }
 
         try {
-            // Make API call to summarize endpoint
-            const response = await fetch(`/api/summarize?topic=${encodeURIComponent(topic)}&length=${length}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-
+            const response = await fetch(`/api/summarize?topic=${encodeURIComponent(topic)}&length=${length}`);
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }));
-                throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                const data = await response.json().catch(() => ({ error: 'Request failed' }));
+                throw new Error(data.error || 'Something went wrong');
             }
-
             const data = await response.json();
-            
-            if (!data.summary || !data.originalUrl) {
-                throw new Error('Invalid response from API - missing summary or URL');
-            }
-
-            // Cache the result
             cacheManager.set(topic, length, data.summary, data.originalUrl);
-            
             this.displayResult(topic, length, data.summary, data.originalUrl, false);
-
-            // Add to history
             historyManager.add(topic, length);
-
-            toastManager.show('Success!', `Summary for "${topic}" was successfully created.`);
-
         } catch (error) {
             this.hideAllStates();
-            
-            // Handle rate limiting specifically
-            if (error.message.includes('Rate limit') || error.message.includes('overloaded')) {
-                this.elements.errorMessage.innerHTML = `
-                    <div class="text-center">
-                        <div class="text-amber-600 mb-2">
-                            <i data-lucide="clock" class="w-8 h-8 mx-auto"></i>
-                        </div>
-                        <p class="font-medium">Service temporarily overloaded</p>
-                        <p class="text-sm text-gray-600 mt-1">Please try again in a few seconds</p>
-                    </div>
-                `;
-                toastManager.show('Please wait', 'Service is busy, try again in a moment', 'warning');
-            } else {
-                this.elements.errorMessage.textContent = error.message;
-                toastManager.show('Error', error.message, 'error');
-            }
-            
-            this.elements.errorState.classList.remove('hidden');
+            if (this.elements.errorMessage) this.elements.errorMessage.textContent = error.message;
+            if (this.elements.errorState) this.elements.errorState.classList.remove('hidden');
+            toastManager.show(error.message, 'error');
         } finally {
-            // Reset button state
-            this.elements.searchBtn.innerHTML = `
-                <i data-lucide="search" class="w-5 h-5"></i>
-                Search and summarize
-            `;
-            this.elements.searchBtn.disabled = false;
-            // Only initialize icons if lucide is available
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                initializeLucideIcons();
+            if (this.elements.searchBtn) {
+                this.elements.searchBtn.disabled = false;
+                this.elements.searchBtn.textContent = 'Summarize';
             }
+            initializeLucideIcons();
         }
     }
 
     displayResult(topic, length, summary, originalUrl, fromCache) {
-        // Store result
-        this.currentResult = {
-            summary,
-            originalUrl,
-            topic,
-            sentenceCount: length
-        };
-
-        // Update UI
+        this.currentResult = { summary, originalUrl, topic, sentenceCount: length };
         this.hideAllStates();
-        this.elements.resultTitle.innerHTML = `
-            <div class="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md">
-                <i data-lucide="book-open" class="w-4 h-4 text-white"></i>
-            </div>
-            ${topic}
-        `;
-        this.elements.resultBadge.textContent = `${length} ${length === 1 ? 'sentence' : 'sentences'}`;
-        this.elements.resultContent.innerHTML = summary;
-        this.elements.wikiLink.href = originalUrl;
         
-        // Show/hide cache indicator
-        if (fromCache) {
-            this.elements.cacheIndicator.classList.remove('hidden');
-        } else {
-            this.elements.cacheIndicator.classList.add('hidden');
+        // Calculate reading time (approx 200 words per minute)
+        const wordCount = summary.split(' ').length;
+        const readTime = Math.max(1, Math.ceil(wordCount / 200));
+
+        if (this.elements.resultTitle) this.elements.resultTitle.textContent = topic;
+        if (this.elements.resultBadge) this.elements.resultBadge.innerHTML = `${length} Sentences &bull; ${readTime} min read`;
+        if (this.elements.resultContent) this.elements.resultContent.innerHTML = summary;
+        if (this.elements.wikiLink) this.elements.wikiLink.href = originalUrl;
+        if (this.elements.cacheIndicator) {
+            if (fromCache) this.elements.cacheIndicator.classList.remove('hidden');
+            else this.elements.cacheIndicator.classList.add('hidden');
         }
-        
-        this.elements.resultCard.classList.remove('hidden');
-        // Only initialize icons if lucide is available
-        if (typeof lucide !== 'undefined' && lucide.createIcons) {
-            initializeLucideIcons();
+        if (this.elements.resultCard) {
+            this.elements.resultCard.classList.remove('hidden');
+            this.elements.resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+        initializeLucideIcons();
     }
 }
 
-// Global instances
-let themeManager;
-let cacheManager;
-let historyManager;
-let toastManager;
-let quickWikiApp;
+let themeManager, cacheManager, historyManager, toastManager, quickWikiApp;
 
-// Initialize the application
-function initializeApp() {
-    try {
-        // Initialize all managers and the main app
-        themeManager = new ThemeManager();
-        cacheManager = new CacheManager();
-        historyManager = new HistoryManager();
-        toastManager = new ToastManager();
-        quickWikiApp = new QuickWikiApp();
-        
-        // Initialize Lucide icons only if available
-        if (typeof lucide !== 'undefined' && lucide.createIcons) {
-            initializeLucideIcons();
-        }
-        
-        console.log('QuickWiki application initialized successfully');
-        
-    } catch (error) {
-        console.error('Failed to initialize application:', error);
-    }
-}
-
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
+document.addEventListener('DOMContentLoaded', () => {
+    themeManager = new ThemeManager();
+    cacheManager = new CacheManager();
+    historyManager = new HistoryManager();
+    toastManager = new ToastManager();
+    quickWikiApp = new QuickWikiApp();
+    initializeLucideIcons();
 });

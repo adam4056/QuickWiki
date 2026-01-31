@@ -3,189 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Support QuickWiki - Donations</title>
-    <meta name="description" content="Support QuickWiki development with cryptocurrency donations. BTC, ETH, and SOL accepted.">
-    <!-- Umami Analytics -->
-    <script defer src="https://cloud.umami.is/script.js" data-website-id="ea6dd354-3f19-4513-b3a7-c4300b1e5a42"></script>
+    <title>Support Us | QuickWiki</title>
+    <meta name="description" content="Support QuickWiki development with cryptocurrency donations.">
     
     <!-- Tailwind CSS local build -->
     <link href="output.css" rel="stylesheet">
     <link rel="icon" href="icons/favicon.png" type="image/png">
     
     <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --card-bg: rgba(0, 0, 0, 0.03);
+            --card-border: rgba(0, 0, 0, 0.08);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #050505;
+                --text-color: #ffffff;
+                --card-bg: rgba(255, 255, 255, 0.03);
+                --card-border: rgba(255, 255, 255, 0.1);
+            }
+        }
+
         body {
-            font-family: system-ui, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            -webkit-font-smoothing: antialiased;
         }
         
-        .gradient-text {
-            background: linear-gradient(135deg, #374151 0%, #6b7280 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .dark .gradient-text {
-            background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .crypto-card {
-            transition: all 0.3s ease;
-        }
-
-        .crypto-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        .apple-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--card-border);
         }
     </style>
 </head>
 
-<body class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
-    <!-- Header at the top -->
-    <header class="border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm transition-colors duration-300 shadow-sm">
-        <div class="container mx-auto p-6">
+<body class="min-h-screen transition-colors duration-500 flex flex-col">
+    <!-- Header -->
+    <header class="fixed top-0 w-full z-50 bg-white/70 dark:bg-black/50 backdrop-blur-md">
+        <div class="container mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md">
-                        <i data-lucide="book-open" class="w-5 h-5 text-white"></i>
+                <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <div class="w-8 h-8 bg-black dark:bg-white rounded-full flex items-center justify-center">
+                        <i data-lucide="book-open" class="w-5 h-5 text-white dark:text-black"></i>
                     </div>
-                    <div>
-                        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">QuickWiki</h1>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">AI-powered Wikipedia summaries</p>
-                    </div>
-                </div>
-                
-                <div class="flex items-center gap-4">
-                    <a href="index.html" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200">
-                        <i data-lucide="home" class="w-5 h-5"></i>
-                    </a>
-                    <span class="px-3 py-1 text-xs bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700/30 text-green-700 dark:text-green-400 rounded-full font-medium select-none">
-                        Beta
-                    </span>
-                </div>
+                    <h1 class="text-lg font-medium tracking-tight">QuickWiki</h1>
+                </a>
             </div>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="container mx-auto px-6 py-12 max-w-4xl">
-        <!-- Page Title -->
-        <div class="text-center mb-16">
-            <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-6">Support QuickWiki</h1>
-            <p class="text-xl text-gray-700 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-                If you like the project, please consider donating to support its development and keep the servers running.
-            </p>
-        </div>
+    <main class="flex-grow flex flex-col">
+        <!-- Vertical Center Wrapper -->
+        <div class="min-h-screen flex flex-col justify-center px-6">
+            <div class="container mx-auto max-w-2xl w-full py-20">
+                <div class="space-y-12">
+                    <div class="space-y-4">
+                        <h2 class="text-4xl md:text-5xl font-semibold tracking-tight text-center md:text-left">Support Us</h2>
+                        <p class="opacity-50 text-lg md:text-xl text-center md:text-left leading-relaxed">
+                            If you find QuickWiki useful, consider supporting its development.
+                        </p>
+                    </div>
 
-        <!-- Donation Cards -->
-        <div class="space-y-8 mb-16">
-            <!-- Bitcoin Card -->
-            <div class="crypto-card bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
-                <div class="flex items-center gap-4 mb-6">
-                    <div>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Bitcoin</h3>
-                        <p class="text-gray-600 dark:text-gray-400">BTC Address</p>
+                    <div class="grid grid-cols-1 gap-6">
+                        <!-- Bitcoin -->
+                        <div class="apple-card p-6 rounded-[2rem] space-y-4 cursor-pointer hover:bg-current/[0.05] transition-all active:scale-[0.98]" onclick="copyAddress('bc1q0xznyedpldeepk0gww6tj4zcyj293cshqmhp80', 'Bitcoin')">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-current/5 rounded-full flex items-center justify-center">
+                                        <i data-lucide="bitcoin" class="w-5 h-5 opacity-60"></i>
+                                    </div>
+                                    <h3 class="text-xs uppercase tracking-widest opacity-30 font-bold">Bitcoin</h3>
+                                </div>
+                                <i data-lucide="copy" class="w-4 h-4 opacity-20"></i>
+                            </div>
+                            <div class="bg-current/[0.03] p-4 rounded-2xl border border-current/[0.05]">
+                                <p class="font-mono text-sm break-all opacity-80">bc1q0xznyedpldeepk0gww6tj4zcyj293cshqmhp80</p>
+                            </div>
+                        </div>
+
+                        <!-- Ethereum -->
+                        <div class="apple-card p-6 rounded-[2rem] space-y-4 cursor-pointer hover:bg-current/[0.05] transition-all active:scale-[0.98]" onclick="copyAddress('0x058285eaa2259b594076Ae5F215c8A8433373357', 'Ethereum')">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-current/5 rounded-full flex items-center justify-center text-current">
+                                        <span class="font-bold text-xs opacity-60">ETH</span>
+                                    </div>
+                                    <h3 class="text-xs uppercase tracking-widest opacity-30 font-bold">Ethereum</h3>
+                                </div>
+                                <i data-lucide="copy" class="w-4 h-4 opacity-20"></i>
+                            </div>
+                            <div class="bg-current/[0.03] p-4 rounded-2xl border border-current/[0.05]">
+                                <p class="font-mono text-sm break-all opacity-80">0x058285eaa2259b594076Ae5F215c8A8433373357</p>
+                            </div>
+                        </div>
+
+                        <!-- Solana -->
+                        <div class="apple-card p-6 rounded-[2rem] space-y-4 cursor-pointer hover:bg-current/[0.05] transition-all active:scale-[0.98]" onclick="copyAddress('EiH2vVLcYv4YEp8Rz6mCk76SoBFZhcp8WJH1V3NV7vZA', 'Solana')">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-current/5 rounded-full flex items-center justify-center text-current">
+                                        <span class="font-bold text-xs opacity-60">SOL</span>
+                                    </div>
+                                    <h3 class="text-xs uppercase tracking-widest opacity-30 font-bold">Solana</h3>
+                                </div>
+                                <i data-lucide="copy" class="w-4 h-4 opacity-20"></i>
+                            </div>
+                            <div class="bg-current/[0.03] p-4 rounded-2xl border border-current/[0.05]">
+                                <p class="font-mono text-sm break-all opacity-80">EiH2vVLcYv4YEp8Rz6mCk76SoBFZhcp8WJH1V3NV7vZA</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center opacity-40 text-xs tracking-wide">
+                        <p>Thank you for being part of the journey.</p>
                     </div>
                 </div>
-                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-                    <p class="font-mono text-lg text-gray-900 dark:text-white break-all">bc1q0xznyedpldeepk0gww6tj4zcyj293cshqmhp80</p>
-                </div>
-            </div>
-
-            <!-- Ethereum Card -->
-            <div class="crypto-card bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
-                <div class="flex items-center gap-4 mb-6">
-                    <div>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Ethereum</h3>
-                        <p class="text-gray-600 dark:text-gray-400">ETH Address</p>
-                    </div>
-                </div>
-                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-                    <p class="font-mono text-lg text-gray-900 dark:text-white break-all">0x058285eaa2259b594076Ae5F215c8A8433373357</p>
-                </div>
-            </div>
-
-            <!-- Solana Card -->
-            <div class="crypto-card bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
-                <div class="flex items-center gap-4 mb-6">
-                    <div>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white">Solana</h3>
-                        <p class="text-gray-600 dark:text-gray-400">SOL Address</p>
-                    </div>
-                </div>
-                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-                    <p class="font-mono text-lg text-gray-900 dark:text-white break-all">EiH2vVLcYv4YEp8Rz6mCk76SoBFZhcp8WJH1V3NV7vZA</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Thank You Message -->
-        <div class="text-center mb-16">
-            <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/30 rounded-xl p-8">
-                <h2 class="text-2xl font-bold text-green-800 dark:text-green-400 mb-4">Thank You for Your Support!</h2>
-                <p class="text-green-700 dark:text-green-300 text-lg">
-                    Every donation helps us improve QuickWiki and keep it free for everyone.
-                </p>
             </div>
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-6">
-        <div class="container mx-auto px-6 py-10">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
-                <div class="text-sm text-gray-600 dark:text-gray-400">
-                    Powered by <span class="font-semibold text-gray-900 dark:text-white">Wikipedia API</span> & <span class="font-semibold text-gray-900 dark:text-white">Groq AI</span>
-                </div>
-                <div class="flex items-center gap-3">
-                    <span class="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/30 text-blue-700 dark:text-blue-400 rounded-full font-medium">
-                        Free to Use
-                    </span>
-                </div>
-            </div>
-            <div class="flex justify-center mb-10">
-                <nav class="flex items-center gap-6 p-3">
-                    <a href="terms.html" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200">Terms of Use</a>
-                    <a href="privacy.html" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200">Privacy Policy</a>
-                    <a href="contact.html" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200">Contact</a>
-                    <a href="donations.html" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-200">Support Us</a>
-                    <a href="https://github.com/adam4056/QuickWiki" target="_blank" rel="noopener noreferrer" class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-200 flex items-center gap-1">
-                        <i data-lucide="github" class="w-4 h-4"></i>
-                        GitHub
-                    </a>
-                </nav>
-            </div>
-            <div class="pt-8 border-t border-gray-200 dark:border-gray-700 text-center space-y-4 p-3">
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Copyright © 2025 Adam Skřivánek
-                </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Licensed under the MIT License – see <a href="https://github.com/adam4056/QuickWiki/LICENSE" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:underline">LICENSE</a> file for details.
-                </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Article summaries are derived from content on <a href="https://www.wikipedia.org" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:underline">Wikipedia</a>, 
-                    which is licensed under the 
-                    <a href="https://creativecommons.org/licenses/by-sa/4.0/legalcode.en" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:underline">
-                      Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)</a> license. 
-                    Wikipedia® is a trademark of the Wikimedia Foundation.
-                </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Icons by <a href="https://lucide.dev" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:underline">Lucide</a> 
-                    (<a href="licence/ISC.txt" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:underline">ISC License</a>). 
-                    Styling via <a href="https://tailwindcss.com" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:underline">Tailwind CSS</a> 
-                    (<a href="https://github.com/tailwindlabs/tailwindcss/blob/master/LICENSE" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:underline">MIT License</a>).
-                </p>
-            </div>
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 translate-y-20 transition-all duration-500 z-50 opacity-0 pointer-events-none">
+        <div class="bg-black dark:bg-white text-white dark:text-black rounded-full px-6 py-3 shadow-2xl flex items-center gap-3">
+            <div id="toast-icon"></div>
+            <p id="toast-title" class="font-medium text-sm"></p>
         </div>
-    </footer>
+    </div>
 
-    <!-- Lucide Icons -->
     <script src="lucide.js"></script>
+    <script src="script.js"></script>
     <script>
-        // Initialize Lucide icons only
         lucide.createIcons();
+        function copyAddress(addr, name) {
+            navigator.clipboard.writeText(addr).then(() => {
+                if (window.toastManager) {
+                    toastManager.show(name + ' address copied');
+                }
+            });
+        }
     </script>
 </body>
 </html>
