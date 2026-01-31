@@ -212,8 +212,15 @@ class QuickWikiApp {
         if (this.elements.searchForm) this.elements.searchForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const topic = this.elements.topicInput.value.trim();
+            const lengthInput = document.getElementById('length');
             const length = parseInt(lengthInput.value);
-            if (topic) this.performSearch(topic, length);
+            
+            if (!topic) {
+                toastManager.show('Please enter a topic', 'warning');
+                return;
+            }
+            
+            this.performSearch(topic, length);
         });
         if (this.elements.retryBtn) this.elements.retryBtn.addEventListener('click', () => {
             if (this.currentResult) this.performSearch(this.currentResult.topic, this.currentResult.sentenceCount);
