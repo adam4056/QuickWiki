@@ -60,7 +60,10 @@ export default async function handler(req, res) {
         return;
       }
 
-      // 3. Groq API call (summarization)
+      // 3. Truncate text to stay within Groq API TPM limits (approx 1000 tokens)
+      const truncatedText = extractText.slice(0, 4000);
+
+      // 4. Groq API call (summarization)
       const systemPrompt = `You are a concise AI summarizer. Create exactly ${sentenceCount} short sentences (maximum 12 words each) summarizing the key points. Use simple, direct language. Return clean HTML without <html> or <body> tags. Be brief and factual only.`;
       
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -73,7 +76,7 @@ export default async function handler(req, res) {
           model: 'llama-3.1-8b-instant',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: extractText }
+            { role: 'user', content: truncatedText }
           ],
           temperature: 0.3,
           max_tokens: 200,
