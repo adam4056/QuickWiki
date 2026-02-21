@@ -50,9 +50,9 @@ class CacheManager {
         return null;
     }
 
-    set(topic, length, summary, originalUrl) {
+    set(topic, length, summary, originalUrl, title) {
         const key = this.getCacheKey(topic, length);
-        this.cache[key] = { summary, originalUrl, timestamp: Date.now() };
+        this.cache[key] = { summary, originalUrl, title, timestamp: Date.now() };
         const keys = Object.keys(this.cache);
         if (keys.length > this.maxItems) {
             const sortedKeys = keys.sort((a, b) => this.cache[a].timestamp - this.cache[b].timestamp);
@@ -242,12 +242,20 @@ class QuickWikiApp {
     async performSearch(topic, length, fromHistory = false) {
         const cached = cacheManager.get(topic, length);
         if (cached) {
-            this.displayResult(topic, length, cached.summary, cached.originalUrl, true);
+            this.displayResult(cached.title || topic, length, cached.summary, cached.originalUrl, true);
             if (!fromHistory) historyManager.add(topic, length);
             return;
         }
 
         this.hideAllStates();
+        
+        // Shrink wrapper to reduce gap
+        const wrapper = document.getElementById('search-wrapper');
+        if (wrapper) {
+            wrapper.classList.remove('min-h-screen', 'justify-center');
+            wrapper.classList.add('pt-32', 'pb-12');
+        }
+
         if (this.elements.heroSection) this.elements.heroSection.classList.add('hidden');
         if (this.elements.loadingState) this.elements.loadingState.classList.remove('hidden');
         if (this.elements.searchBtn) {
@@ -262,8 +270,8 @@ class QuickWikiApp {
                 throw new Error(data.error || 'Something went wrong');
             }
             const data = await response.json();
-            cacheManager.set(topic, length, data.summary, data.originalUrl);
-            this.displayResult(topic, length, data.summary, data.originalUrl, false);
+            cacheManager.set(topic, length, data.summary, data.originalUrl, data.title);
+            this.displayResult(data.title || topic, length, data.summary, data.originalUrl, false);
             historyManager.add(topic, length);
         } catch (error) {
             this.hideAllStates();
@@ -283,6 +291,13 @@ class QuickWikiApp {
         this.currentResult = { summary, originalUrl, topic, sentenceCount: length };
         this.hideAllStates();
         
+        // Ensure wrapper is shrunk if displaying from cache/history
+        const wrapper = document.getElementById('search-wrapper');
+        if (wrapper) {
+            wrapper.classList.remove('min-h-screen', 'justify-center');
+            wrapper.classList.add('pt-32', 'pb-12');
+        }
+
         // Calculate reading time (approx 200 words per minute)
         const wordCount = summary.split(' ').length;
         const readTime = Math.max(1, Math.ceil(wordCount / 200));
@@ -290,7 +305,16 @@ class QuickWikiApp {
         if (this.elements.resultTitle) this.elements.resultTitle.textContent = topic;
         if (this.elements.resultBadge) this.elements.resultBadge.innerHTML = `Agent Analysis &bull; ${wordCount} words`;
         if (this.elements.resultContent) this.elements.resultContent.innerHTML = summary;
-        if (this.elements.wikiLink) this.elements.wikiLink.href = originalUrl;
+        
+        if (this.elements.wikiLink) {
+            if (originalUrl) {
+                this.elements.wikiLink.href = originalUrl;
+                this.elements.wikiLink.classList.remove('hidden');
+            } else {
+                this.elements.wikiLink.classList.add('hidden');
+            }
+        }
+
         if (this.elements.cacheIndicator) {
             if (fromCache) this.elements.cacheIndicator.classList.remove('hidden');
             else this.elements.cacheIndicator.classList.add('hidden');

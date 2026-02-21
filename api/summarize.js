@@ -119,7 +119,11 @@ Constraints:
       }
 
       const originalUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(bestMatchTitle.replace(/ /g, '_'))}`;
-      res.status(200).json({ summary: htmlOutput, originalUrl });
+      res.status(200).json({ 
+        summary: htmlOutput, 
+        originalUrl,
+        title: bestMatchTitle 
+      });
 
     } catch (err) {
       console.error('Error in summarize API:', err);
