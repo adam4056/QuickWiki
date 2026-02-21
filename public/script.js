@@ -1,5 +1,77 @@
 // QuickWiki JavaScript - Production Version
 
+// Translations
+const translations = {
+    en: {
+        heroTitle: "Knowledge, refined.",
+        heroSubtitle: "Your intelligent Wikipedia Agent.",
+        placeholder: "What would you like to know?",
+        askBtn: "Ask Agent",
+        thinking: "Thinking...",
+        agentAnalysis: "Agent Analysis",
+        words: "words",
+        recentSearches: "Recent Searches",
+        clear: "Clear",
+        copy: "Copy",
+        copied: "Copied",
+        share: "Share",
+        viewWiki: "View Wikipedia",
+        historyTag: "Agent Definition",
+        linkCopied: "Link Copied"
+    },
+    cs: {
+        heroTitle: "Znalosti, kultivovaně.",
+        heroSubtitle: "Váš inteligentní agent pro Wikipedii.",
+        placeholder: "Co byste chtěli vědět?",
+        askBtn: "Zeptej se",
+        thinking: "Přemýšlím...",
+        agentAnalysis: "Analýza agenta",
+        words: "slov",
+        recentSearches: "Nedávná hledání",
+        clear: "Smazat",
+        copy: "Kopírovat",
+        copied: "Zkopírováno",
+        share: "Sdílet",
+        viewWiki: "Zobrazit Wikipedii",
+        historyTag: "Definice agenta",
+        linkCopied: "Odkaz zkopírován"
+    },
+    de: {
+        heroTitle: "Wissen, verfeinert.",
+        heroSubtitle: "Ihr intelligenter Wikipedia-Agent.",
+        placeholder: "Was möchten Sie wissen?",
+        askBtn: "Agent fragen",
+        thinking: "Nachdenken...",
+        agentAnalysis: "Agenten-Analyse",
+        words: "Wörter",
+        recentSearches: "Letzte Suchen",
+        clear: "Löschen",
+        copy: "Kopieren",
+        copied: "Kopiert",
+        share: "Teilen",
+        viewWiki: "Wikipedia anzeigen",
+        historyTag: "Agenten-Definition",
+        linkCopied: "Link kopiert"
+    },
+    es: {
+        heroTitle: "Conocimiento, refinado.",
+        heroSubtitle: "Tu agente inteligente de Wikipedia.",
+        placeholder: "¿Qué te gustaría saber?",
+        askBtn: "Preguntar",
+        thinking: "Pensando...",
+        agentAnalysis: "Análisis del agente",
+        words: "palabras",
+        recentSearches: "Búsquedas recientes",
+        clear: "Limpiar",
+        copy: "Copiar",
+        copied: "Copiado",
+        share: "Compartir",
+        viewWiki: "Ver Wikipedia",
+        historyTag: "Definición del agente",
+        linkCopied: "Enlace copiado"
+    }
+};
+
 // Initialize Lucide icons
 function initializeLucideIcons() {
     if (typeof lucide !== 'undefined' && lucide.createIcons) {
@@ -30,6 +102,94 @@ class ThemeManager {
     }
 }
 
+// Language Management
+class LanguageManager {
+    constructor() {
+        this.currentLang = localStorage.getItem('quickwiki-lang') || 'en';
+        this.init();
+    }
+
+    init() {
+        const langBtns = document.querySelectorAll('.lang-btn');
+        langBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const lang = btn.dataset.lang;
+                this.setLanguage(lang);
+            });
+        });
+        this.updateUI();
+    }
+
+    setLanguage(lang) {
+        this.currentLang = lang;
+        localStorage.setItem('quickwiki-lang', lang);
+        this.updateUI();
+        // If there's an active result, we don't re-search automatically to save API calls,
+        // but the UI labels will change.
+    }
+
+    updateUI() {
+        const t = translations[this.currentLang];
+        
+        // Update Buttons state
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            if (btn.dataset.lang === this.currentLang) {
+                btn.classList.add('bg-black', 'dark:bg-white', 'text-white', 'dark:text-black');
+                btn.classList.remove('opacity-40');
+            } else {
+                btn.classList.remove('bg-black', 'dark:bg-white', 'text-white', 'dark:text-black');
+                btn.classList.add('opacity-40');
+            }
+        });
+
+        // Update Text Elements
+        const elements = {
+            'ui-hero-title': t.heroTitle,
+            'ui-hero-subtitle': t.heroSubtitle,
+            'topic': ['placeholder', t.placeholder],
+            'search-btn': t.askBtn,
+            'clear-history': t.clear,
+            'copy-btn': [null, t.copy, 'copy'], // [type, text, icon_name] - custom handling needed
+            'share-btn': [null, t.share, 'share'],
+            'wiki-link': [null, t.viewWiki, 'arrow-up-right']
+        };
+
+        const heroTitle = document.getElementById('ui-hero-title');
+        if (heroTitle) heroTitle.textContent = t.heroTitle;
+        
+        const heroSubtitle = document.getElementById('ui-hero-subtitle');
+        if (heroSubtitle) heroSubtitle.textContent = t.heroSubtitle;
+
+        const topicInput = document.getElementById('topic');
+        if (topicInput) topicInput.placeholder = t.placeholder;
+
+        const searchBtn = document.getElementById('search-btn');
+        if (searchBtn && !searchBtn.disabled) searchBtn.textContent = t.askBtn;
+
+        const clearHistory = document.getElementById('clear-history');
+        if (clearHistory) clearHistory.textContent = t.clear;
+
+        // Result Buttons
+        const copyBtn = document.getElementById('copy-btn');
+        if (copyBtn) copyBtn.innerHTML = `<i data-lucide="copy" class="w-4 h-4"></i> ${t.copy}`;
+        
+        const shareBtn = document.getElementById('share-btn');
+        if (shareBtn) shareBtn.innerHTML = `<i data-lucide="share" class="w-4 h-4"></i> ${t.share}`;
+
+        const wikiLink = document.getElementById('wiki-link');
+        if (wikiLink) wikiLink.innerHTML = `${t.viewWiki} <i data-lucide="arrow-up-right" class="w-4 h-4"></i>`;
+
+        const recentTitle = document.querySelector('#history-panel h3');
+        if (recentTitle) recentTitle.textContent = t.recentSearches;
+
+        initializeLucideIcons();
+    }
+
+    getTranslation(key) {
+        return translations[this.currentLang][key] || key;
+    }
+}
+
 // Cache Management
 class CacheManager {
     constructor() {
@@ -38,20 +198,20 @@ class CacheManager {
         this.maxItems = 50;
     }
 
-    getCacheKey(topic, length) {
-        return `${topic.toLowerCase().trim()}_${length}`;
+    getCacheKey(topic, lang) {
+        return `${topic.toLowerCase().trim()}_${lang}`;
     }
 
-    get(topic, length) {
-        const key = this.getCacheKey(topic, length);
+    get(topic, lang) {
+        const key = this.getCacheKey(topic, lang);
         const cached = this.cache[key];
         if (cached && Date.now() - cached.timestamp < this.maxAge) return cached;
         if (cached) { delete this.cache[key]; this.save(); }
         return null;
     }
 
-    set(topic, length, summary, originalUrl, title) {
-        const key = this.getCacheKey(topic, length);
+    set(topic, lang, summary, originalUrl, title) {
+        const key = this.getCacheKey(topic, lang);
         this.cache[key] = { summary, originalUrl, title, timestamp: Date.now() };
         const keys = Object.keys(this.cache);
         if (keys.length > this.maxItems) {
@@ -82,9 +242,9 @@ class HistoryManager {
         this.render();
     }
 
-    add(topic, length) {
-        const historyItem = { id: Date.now().toString(), topic, length, timestamp: new Date().toISOString() };
-        this.history = this.history.filter(h => h.topic.toLowerCase() !== topic.toLowerCase());
+    add(topic, lang) {
+        const historyItem = { id: Date.now().toString(), topic, lang, timestamp: new Date().toISOString() };
+        this.history = this.history.filter(h => h.topic.toLowerCase() !== topic.toLowerCase() || h.lang !== lang);
         this.history.unshift(historyItem);
         this.history = this.history.slice(0, this.maxItems);
         this.save();
@@ -96,14 +256,14 @@ class HistoryManager {
         this.history = this.history.filter(h => h.id !== id);
         this.save();
         this.render();
-        toastManager.show('Removed', 'Item removed from history.');
+        toastManager.show(languageManager.getTranslation('clear'), 'info');
     }
 
     clear() {
         this.history = [];
         this.save();
         this.render();
-        toastManager.show('Cleared', 'History has been cleared.');
+        toastManager.show(languageManager.getTranslation('clear'), 'info');
     }
 
     save() {
@@ -121,11 +281,17 @@ class HistoryManager {
             this.history.forEach(item => {
                 const historyItem = document.createElement('div');
                 historyItem.className = 'flex items-center justify-between p-4 rounded-xl bg-current/[0.03] border border-current/[0.05] hover:bg-current/[0.06] cursor-pointer transition-all active:scale-[0.98] group animate-fade-in';
-                historyItem.onclick = () => quickWikiApp.performSearch(item.topic, item.length, true);
+                historyItem.onclick = () => {
+                    languageManager.setLanguage(item.lang);
+                    quickWikiApp.performSearch(item.topic, true);
+                };
                 historyItem.innerHTML = `
                     <div class="flex-1 min-w-0">
-                        <p class="font-medium text-sm truncate opacity-80 group-hover:opacity-100">${item.topic}</p>
-                        <p class="text-[10px] uppercase tracking-widest opacity-30 mt-1">Agent Definition</p>
+                        <div class="flex items-center gap-2">
+                            <p class="font-medium text-sm truncate opacity-80 group-hover:opacity-100">${item.topic}</p>
+                            <span class="text-[8px] bg-current/10 px-1 rounded opacity-40 uppercase font-bold">${item.lang}</span>
+                        </div>
+                        <p class="text-[10px] uppercase tracking-widest opacity-30 mt-1">${languageManager.getTranslation('historyTag')}</p>
                     </div>
                     <div class="flex items-center gap-4">
                         <i data-lucide="trash-2" class="w-4 h-4 opacity-0 group-hover:opacity-30 hover:!opacity-100 hover:text-red-500 transition-all p-1" onclick="historyManager.remove('${item.id}', event)"></i>
@@ -171,10 +337,7 @@ class QuickWikiApp {
             heroSection: document.getElementById('hero-section'),
             searchForm: document.getElementById('search-form'),
             topicInput: document.getElementById('topic'),
-            lengthSelect: document.getElementById('length'),
             searchBtn: document.getElementById('search-btn'),
-            toggleAdvanced: document.getElementById('toggle-advanced'),
-            advancedSettings: document.getElementById('advanced-settings'),
             loadingState: document.getElementById('loading-state'),
             errorState: document.getElementById('error-state'),
             errorMessage: document.getElementById('error-message'),
@@ -199,23 +362,20 @@ class QuickWikiApp {
         if (this.elements.searchForm) this.elements.searchForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const topic = this.elements.topicInput.value.trim();
-            const length = 3; // Default value, internal now
-            
             if (!topic) {
-                toastManager.show('Please enter a topic', 'warning');
+                toastManager.show(languageManager.getTranslation('placeholder'), 'info');
                 return;
             }
-            
-            this.performSearch(topic, length);
+            this.performSearch(topic);
         });
         if (this.elements.retryBtn) this.elements.retryBtn.addEventListener('click', () => {
-            if (this.currentResult) this.performSearch(this.currentResult.topic, this.currentResult.sentenceCount);
+            if (this.currentResult) this.performSearch(this.currentResult.topic);
         });
         if (this.elements.copyBtn) this.elements.copyBtn.addEventListener('click', async () => {
             if (this.currentResult) {
                 try {
                     await navigator.clipboard.writeText(this.currentResult.summary.replace(/<[^>]*>/g, ''));
-                    toastManager.show('Copied');
+                    toastManager.show(languageManager.getTranslation('copied'));
                 } catch (e) { toastManager.show('Error', 'error'); }
             }
         });
@@ -227,7 +387,7 @@ class QuickWikiApp {
             } else {
                 try {
                     await navigator.clipboard.writeText(window.location.href);
-                    toastManager.show('Link Copied');
+                    toastManager.show(languageManager.getTranslation('linkCopied'));
                 } catch (e) {}
             }
         });
@@ -239,11 +399,13 @@ class QuickWikiApp {
         if (this.elements.resultCard) this.elements.resultCard.classList.add('hidden');
     }
 
-    async performSearch(topic, length, fromHistory = false) {
-        const cached = cacheManager.get(topic, length);
+    async performSearch(topic, fromHistory = false) {
+        const lang = languageManager.currentLang;
+        const cached = cacheManager.get(topic, lang);
+        
         if (cached) {
-            this.displayResult(cached.title || topic, length, cached.summary, cached.originalUrl, true);
-            if (!fromHistory) historyManager.add(topic, length);
+            this.displayResult(cached.title || topic, cached.summary, cached.originalUrl, true);
+            if (!fromHistory) historyManager.add(topic, lang);
             return;
         }
 
@@ -253,26 +415,26 @@ class QuickWikiApp {
         const wrapper = document.getElementById('search-wrapper');
         if (wrapper) {
             wrapper.classList.remove('min-h-screen', 'justify-center');
-            wrapper.classList.add('pt-32', 'pb-12');
+            wrapper.classList.add('pt-24', 'pb-4'); // Even smaller gap
         }
 
         if (this.elements.heroSection) this.elements.heroSection.classList.add('hidden');
         if (this.elements.loadingState) this.elements.loadingState.classList.remove('hidden');
         if (this.elements.searchBtn) {
             this.elements.searchBtn.disabled = true;
-            this.elements.searchBtn.textContent = 'Thinking...';
+            this.elements.searchBtn.textContent = languageManager.getTranslation('thinking');
         }
 
         try {
-            const response = await fetch(`/api/summarize?topic=${encodeURIComponent(topic)}&length=${length}`);
+            const response = await fetch(`/api/summarize?topic=${encodeURIComponent(topic)}&lang=${lang}`);
             if (!response.ok) {
                 const data = await response.json().catch(() => ({ error: 'Request failed' }));
                 throw new Error(data.error || 'Something went wrong');
             }
             const data = await response.json();
-            cacheManager.set(topic, length, data.summary, data.originalUrl, data.title);
-            this.displayResult(data.title || topic, length, data.summary, data.originalUrl, false);
-            historyManager.add(topic, length);
+            cacheManager.set(topic, lang, data.summary, data.originalUrl, data.title);
+            this.displayResult(data.title || topic, data.summary, data.originalUrl, false);
+            historyManager.add(topic, lang);
         } catch (error) {
             this.hideAllStates();
             if (this.elements.errorMessage) this.elements.errorMessage.textContent = error.message;
@@ -281,29 +443,28 @@ class QuickWikiApp {
         } finally {
             if (this.elements.searchBtn) {
                 this.elements.searchBtn.disabled = false;
-                this.elements.searchBtn.textContent = 'Ask Agent';
+                this.elements.searchBtn.textContent = languageManager.getTranslation('askBtn');
             }
             initializeLucideIcons();
         }
     }
 
-    displayResult(topic, length, summary, originalUrl, fromCache) {
-        this.currentResult = { summary, originalUrl, topic, sentenceCount: length };
+    displayResult(topic, summary, originalUrl, fromCache) {
+        this.currentResult = { summary, originalUrl, topic };
         this.hideAllStates();
         
-        // Ensure wrapper is shrunk if displaying from cache/history
+        // Ensure wrapper is shrunk
         const wrapper = document.getElementById('search-wrapper');
         if (wrapper) {
             wrapper.classList.remove('min-h-screen', 'justify-center');
-            wrapper.classList.add('pt-32', 'pb-12');
+            wrapper.classList.add('pt-24', 'pb-4');
         }
 
-        // Calculate reading time (approx 200 words per minute)
         const wordCount = summary.split(' ').length;
-        const readTime = Math.max(1, Math.ceil(wordCount / 200));
+        const t = translations[languageManager.currentLang];
 
         if (this.elements.resultTitle) this.elements.resultTitle.textContent = topic;
-        if (this.elements.resultBadge) this.elements.resultBadge.innerHTML = `Agent Analysis &bull; ${wordCount} words`;
+        if (this.elements.resultBadge) this.elements.resultBadge.innerHTML = `${t.agentAnalysis} &bull; ${wordCount} ${t.words}`;
         if (this.elements.resultContent) this.elements.resultContent.innerHTML = summary;
         
         if (this.elements.wikiLink) {
@@ -321,16 +482,18 @@ class QuickWikiApp {
         }
         if (this.elements.resultCard) {
             this.elements.resultCard.classList.remove('hidden');
-            this.elements.resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Scroll with small offset to keep search bar visible
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         initializeLucideIcons();
     }
 }
 
-let themeManager, cacheManager, historyManager, toastManager, quickWikiApp;
+let themeManager, languageManager, cacheManager, historyManager, toastManager, quickWikiApp;
 
 document.addEventListener('DOMContentLoaded', () => {
     themeManager = new ThemeManager();
+    languageManager = new LanguageManager();
     cacheManager = new CacheManager();
     historyManager = new HistoryManager();
     toastManager = new ToastManager();

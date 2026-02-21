@@ -77,8 +77,17 @@
                     </div>
                     <h1 class="text-lg font-medium tracking-tight">QuickWiki</h1>
                 </a>
-                <div class="text-[10px] uppercase tracking-widest opacity-40 font-semibold border border-current px-2 py-0.5 rounded-full">
-                    Beta
+                
+                <div class="flex items-center gap-4">
+                    <div id="language-selector" class="flex items-center bg-black/5 dark:bg-white/5 rounded-full px-1 py-1 border border-current/5">
+                        <button data-lang="en" class="lang-btn px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all bg-black dark:bg-white text-white dark:text-black">EN</button>
+                        <button data-lang="cs" class="lang-btn px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all opacity-40 hover:opacity-100">CS</button>
+                        <button data-lang="de" class="lang-btn px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all opacity-40 hover:opacity-100">DE</button>
+                        <button data-lang="es" class="lang-btn px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all opacity-40 hover:opacity-100">ES</button>
+                    </div>
+                    <div class="hidden md:block text-[10px] uppercase tracking-widest opacity-40 font-semibold border border-current px-2 py-0.5 rounded-full">
+                        Beta
+                    </div>
                 </div>
             </div>
         </div>
@@ -90,10 +99,10 @@
             <div class="container mx-auto max-w-3xl w-full py-12 md:py-20">
                 <!-- Hero Section -->
                 <div id="hero-section" class="text-center mb-12 space-y-4">
-                    <h2 class="text-4xl md:text-6xl font-semibold tracking-tight">
+                    <h2 id="ui-hero-title" class="text-4xl md:text-6xl font-semibold tracking-tight">
                         Knowledge, refined.
                     </h2>
-                    <p class="opacity-50 text-lg md:text-xl">
+                    <p id="ui-hero-subtitle" class="opacity-50 text-lg md:text-xl">
                         Your intelligent Wikipedia Agent.
                     </p>
                 </div>

@@ -1,5 +1,6 @@
 export default async function handler(req, res) {
     const topic = req.query.topic;
+    const lang = req.query.lang || 'en';
 
     if (!topic) {
       res.status(400).json({ error: 'Missing parameter "topic"' });
@@ -7,9 +8,9 @@ export default async function handler(req, res) {
     }
 
     try {
-      // 1. MediaWiki Search API (less prone to blocking)
+      // 1. MediaWiki Search API (subdomain based on language)
       const searchRes = await fetch(
-        `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json`,
+        `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=5`,
         {
           headers: {
             'User-Agent': 'QuickWiki/1.0',
@@ -31,11 +32,13 @@ export default async function handler(req, res) {
         return;
       }
 
-      const bestMatchTitle = searchResults[0].title;
+      // Filter for better matches if looking for people or specific terms
+      const bestMatch = searchResults[0];
+      const bestMatchTitle = bestMatch.title;
 
       // 2. Get article extract (plain text)
       const extractRes = await fetch(
-        `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(bestMatchTitle)}&redirects=1`,
+        `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(bestMatchTitle)}&redirects=1`,
         {
           headers: {
             'User-Agent': 'QuickWiki/1.0',
@@ -59,16 +62,27 @@ export default async function handler(req, res) {
         return;
       }
 
-      // 3. Truncate text to stay within Groq API TPM limits (approx 1000 tokens)
-      const truncatedText = extractText.slice(0, 4000);
+      // 3. Truncate text
+      const truncatedText = extractText.slice(0, 5000);
 
-      // 4. Groq API call (Agentic Definition)
+      // 4. Groq API call (Agentic Definition in specific language)
+      const langNames = {
+        'en': 'English',
+        'cs': 'Czech',
+        'de': 'German',
+        'es': 'Spanish'
+      };
+      const targetLang = langNames[lang] || 'English';
+
       const systemPrompt = `You are an intelligent knowledge agent. Your goal is to provide a clear, simple, and accurate definition based on the user's topic and the provided Wikipedia context. 
+
+IMPORTANT: Your response MUST be in ${targetLang}.
 
 Process:
 1. Analyze the context for the most essential facts.
 2. Synthesize a coherent definition that directly addresses the user's query.
-3. Ensure the tone is helpful and educational.
+3. If the context is about a different person with a similar name, clarify that briefly but focus on the available data.
+4. Ensure the tone is helpful and educational.
 
 Constraints:
 - Maximum length: 75 words.
@@ -82,32 +96,23 @@ Constraints:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile', // Using latest flagship for better synthesis
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Topic: ${topic}\n\nContext: ${truncatedText}` }
           ],
           temperature: 0.5,
-          max_tokens: 300,
+          max_tokens: 400,
         }),
       });
 
       if (!groqRes.ok) {
         const errText = await groqRes.text();
-        
-        // Handle rate limiting specifically
         if (groqRes.status === 429) {
-          const errorData = JSON.parse(errText);
-          const retryAfter = errorData.error?.retry_after || 5;
-          res.status(429).json({ 
-            error: 'Rate limit exceeded. Please try again in a few seconds.',
-            retryAfter: retryAfter,
-            detail: 'The AI service is temporarily overloaded.'
-          });
+          res.status(429).json({ error: 'Rate limit exceeded.' });
           return;
         }
-        
-        throw new Error(`Groq API error: ${groqRes.status} ${errText}`);
+        throw new Error(`Groq API error: ${groqRes.status}`);
       }
 
       const groqData = await groqRes.json();
@@ -118,7 +123,7 @@ Constraints:
         return;
       }
 
-      const originalUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(bestMatchTitle.replace(/ /g, '_'))}`;
+      const originalUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(bestMatchTitle.replace(/ /g, '_'))}`;
       res.status(200).json({ 
         summary: htmlOutput, 
         originalUrl,
