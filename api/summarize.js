@@ -13,10 +13,17 @@ export default async function handler(req, res) {
         let sourceTitle = "";
 
         // 1. ZKUSÍME WIKIPEDII
-        const fallbackChain = [primaryLang];
+        // Prvně zkusíme vyhledat na české, až potom na anglické Wikipedii (zajišťuje nalezení lokálních termínů jako Vojtěch Žižka)
+        const fallbackChain = [];
+        if (primaryLang !== 'cs') fallbackChain.push(primaryLang);
+        fallbackChain.push('cs');
         if (primaryLang !== 'en') fallbackChain.push('en');
+        // Příklad pro primaryLang='cs': ['cs', 'en']
+        // Příklad pro primaryLang='en': ['en', 'cs']
+        // Deduplikace jazyků:
+        const uniqueFallbackChain = [...new Set(fallbackChain)];
 
-        for (const lang of fallbackChain) {
+        for (const lang of uniqueFallbackChain) {
             const wikiSearch = await fetch(
                 `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=1`,
                 { headers: { 'User-Agent': 'QuickWiki/1.0' } }
@@ -25,6 +32,23 @@ export default async function handler(req, res) {
             
             if (searchData.query?.search?.length > 0) {
                 const title = searchData.query.search[0].title;
+                const snippet = searchData.query.search[0].snippet;
+                
+                // Měkké ověření relevance - alespoň část zadaného textu by měla být v názvu článku (či začátku textu).
+                // Řeší problém "bottlecap" (vrací Tomaše Mikolova) nebo "Vojta Žižka" (vrací Jana Žižku).
+                const topicWords = topic.toLowerCase().split(/\s+/).filter(w => w.length > 2); // Filtrujeme spojky atp
+                const titleLower = title.toLowerCase();
+                
+                // Zkontrolujeme, zda alespoň jedno z delších hledaných slov je v titulku 
+                const isRelevantTitle = topicWords.length === 0 || topicWords.some(word => titleLower.includes(word));
+                
+                if (!isRelevantTitle) {
+                    // Pokud je titulek úplně irelevantní (ani jedno shoda slova), přeskočíme tento výsledek
+                    // Může se jednat o článek, kde je slovo pouze zmíněno hluboko v textu, což u 25slovních definic nechceme
+                    // Například: Hledá se "Bottlecap", najde se "Tomáš Mikolov", v názvu shoda není -> přeskočí se na Brave/další jazyk
+                    continue;
+                }
+
                 const wikiExtract = await fetch(
                     `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(title)}&redirects=1`,
                     { headers: { 'User-Agent': 'QuickWiki/1.0' } }
