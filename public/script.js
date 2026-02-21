@@ -105,7 +105,23 @@ class ThemeManager {
 // Language Management
 class LanguageManager {
     constructor() {
-        this.currentLang = localStorage.getItem('quickwiki-lang') || 'en';
+        let savedLang = localStorage.getItem('quickwiki-lang');
+        
+        // Automatická lokalizace podle prohlížeče, pokud uživatel ještě nemá uloženou preferenci
+        if (!savedLang) {
+            const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+            if (browserLang.startsWith('cs') || browserLang.startsWith('sk')) {
+                savedLang = 'cs';
+            } else if (browserLang.startsWith('de')) {
+                savedLang = 'de';
+            } else if (browserLang.startsWith('es')) {
+                savedLang = 'es';
+            } else {
+                savedLang = 'en'; // Bezpečnostní fallback
+            }
+        }
+        
+        this.currentLang = savedLang;
         this.init();
     }
 
