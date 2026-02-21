@@ -83,24 +83,87 @@ export default async function handler(req, res) {
         - FORMÁT: Čistý text v <p>, klíčová slova v <strong>.
         - ZDROJ: Použij výhradně přiložený kontext. Pokud je to Brave Search, syntetizuj nejdůležitější fakta.`;
       
-        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: `Pojem: ${topic}\nKontext: ${context}` }
-                ],
-                temperature: 0.2,
-            }),
-        });
+        let htmlOutput = null;
 
-        const groqData = await groqRes.json();
-        const htmlOutput = groqData.choices?.[0]?.message?.content;
+        let useGemini = false;
+        const specialKey = req.query.special_key || req.query.backup_key || req.query.key;
+        const expectedKey = process.env.SPECIAL_KEY || process.env.BACKUP_KEY;
+        let geminiApiKey = process.env.GEMINI_API_KEY;
+
+        if (specialKey) {
+            if (expectedKey) {
+                // Pokud je definováno tajné heslo v env proměnných, kontrolujeme vůči němu
+                useGemini = (specialKey === expectedKey);
+            } else {
+                // Pokud server nemá tajné heslo nastaveno, považujeme zadaný klíč za přímý Gemini API klíč
+                useGemini = true;
+                geminiApiKey = specialKey;
+            }
+        }
+
+        try {
+            if (useGemini) {
+                if (!geminiApiKey) {
+                    throw new Error('GEMINI_API_KEY není k dispozici.');
+                }
+
+                const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-preview:generateContent?key=${geminiApiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        systemInstruction: {
+                            parts: [{ text: systemPrompt }]
+                        },
+                        contents: [{
+                            role: 'user',
+                            parts: [{ text: `Pojem: ${topic}\nKontext: ${context}` }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.2
+                        }
+                    })
+                });
+
+                if (!geminiRes.ok) {
+                    throw new Error(`Gemini API error: ${geminiRes.statusText}`);
+                }
+
+                const geminiData = await geminiRes.json();
+                htmlOutput = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+            } else {
+                const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: `Pojem: ${topic}\nKontext: ${context}` }
+                        ],
+                        temperature: 0.2,
+                    }),
+                });
+
+                if (!groqRes.ok) {
+                    throw new Error(`Groq API error: ${groqRes.statusText}`);
+                }
+
+                const groqData = await groqRes.json();
+                htmlOutput = groqData.choices?.[0]?.message?.content;
+            }
+        } catch (apiError) {
+            console.error('AI API Error:', apiError);
+            res.status(500).json({ error: 'Chyba při komunikaci s AI modelem.' });
+            return;
+        }
+
+        if (!htmlOutput) {
+            res.status(500).json({ error: 'Nepodařilo se vygenerovat výsledek z žádného modelu.' });
+            return;
+        }
 
         res.status(200).json({ 
             summary: htmlOutput, 

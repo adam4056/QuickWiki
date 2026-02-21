@@ -427,7 +427,20 @@ class QuickWikiApp {
         }
 
         try {
-            const response = await fetch(`/api/summarize?topic=${encodeURIComponent(topic)}&lang=${lang}`);
+            const urlParams = new URLSearchParams(window.location.search);
+            const params = new URLSearchParams({
+                topic: topic,
+                lang: lang
+            });
+            
+            // Přidání případného speciálního klíče nebo dalších parametrů z URL
+            urlParams.forEach((value, key) => {
+                if (key !== 'topic' && key !== 'lang') {
+                    params.append(key, value);
+                }
+            });
+
+            const response = await fetch(`/api/summarize?${params.toString()}`);
             if (!response.ok) {
                 const data = await response.json().catch(() => ({ error: 'Request failed' }));
                 throw new Error(data.error || 'Something went wrong');
