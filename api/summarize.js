@@ -151,7 +151,7 @@ export default async function handler(req, res) {
                     throw new Error('GEMINI_API_KEY není k dispozici.');
                 }
 
-                const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-preview:generateContent?key=${geminiApiKey}`, {
+                const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -169,7 +169,9 @@ export default async function handler(req, res) {
                 });
 
                 if (!geminiRes.ok) {
-                    throw new Error(`Gemini API error: ${geminiRes.statusText}`);
+                    const errorText = await geminiRes.text();
+                    console.error('Gemini API chybová odpověď:', errorText);
+                    throw new Error(`Gemini API error: ${geminiRes.status} ${geminiRes.statusText} - ${errorText}`);
                 }
 
                 const geminiData = await geminiRes.json();
@@ -200,7 +202,7 @@ export default async function handler(req, res) {
             }
         } catch (apiError) {
             console.error('AI API Error:', apiError);
-            res.status(500).json({ error: 'Chyba při komunikaci s AI modelem.' });
+            res.status(500).json({ error: `Chyba při komunikaci s modelem: ${apiError.message}` });
             return;
         }
 
