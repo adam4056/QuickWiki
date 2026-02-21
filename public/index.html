@@ -39,6 +39,7 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 50% 0%, var(--card-border) 0%, transparent 70%);
             color: var(--text-color);
             -webkit-font-smoothing: antialiased;
         }
@@ -108,22 +109,22 @@
                 </div>
 
                 <!-- Search Area -->
-                <div class="space-y-8">
-                    <div class="apple-card p-2 rounded-full shadow-2xl">
-                        <form id="search-form" class="relative">
+                <div class="space-y-8 max-w-2xl mx-auto">
+                    <div class="apple-card p-2 md:p-3 rounded-full shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_30px_60px_-15px_rgba(255,255,255,0.05)] border border-current/[0.08]">
+                        <form id="search-form" class="relative group">
                             <div class="relative flex flex-col md:flex-row items-center gap-2 md:gap-0">
-                                <i data-lucide="search" class="hidden md:block absolute left-6 opacity-30 w-5 h-5"></i>
+                                <i data-lucide="search" class="hidden md:block absolute left-8 opacity-40 w-6 h-6 transition-opacity group-focus-within:opacity-100"></i>
                                 <input
                                     id="topic"
                                     type="text"
                                     placeholder="What would you like to know?"
-                                    class="w-full h-14 md:h-16 pl-6 md:pl-14 pr-6 md:pr-36 bg-black/5 dark:bg-white/5 md:bg-transparent rounded-full text-lg focus:outline-none placeholder-current opacity-70"
+                                    class="w-full h-14 md:h-16 pl-6 md:pl-20 pr-6 md:pr-40 bg-black/5 dark:bg-white/5 md:bg-transparent rounded-full text-xl font-medium tracking-tight focus:outline-none placeholder-current opacity-70 transition-all focus:opacity-100"
                                     required
                                 />
                                 <button
                                     type="submit"
                                     id="search-btn"
-                                    class="w-full md:w-auto md:absolute md:right-2 h-12 px-8 bg-black dark:bg-white text-white dark:text-black rounded-full font-medium hover:opacity-90 transition-all active:scale-95"
+                                    class="w-full md:w-auto md:absolute md:right-2 h-12 px-8 bg-black dark:bg-white text-white dark:text-black rounded-full font-semibold hover:opacity-90 transition-all active:scale-95 shadow-md hover:shadow-lg"
                                 >
                                     Ask Agent
                                 </button>
@@ -158,12 +159,12 @@
             </div>
 
             <!-- Error State -->
-            <div id="error-state" class="hidden apple-card p-6 rounded-3xl">
-                <div class="flex items-start gap-4">
-                    <i data-lucide="alert-circle" class="w-5 h-5 opacity-60 mt-0.5"></i>
+            <div id="error-state" class="hidden apple-card p-6 rounded-[2rem] border-red-500/20 bg-red-500/5">
+                <div class="flex items-start gap-4 text-red-600 dark:text-red-400">
+                    <i data-lucide="alert-circle" class="w-5 h-5 opacity-80 mt-0.5"></i>
                     <div class="flex-1 space-y-4">
-                        <p id="error-message" class="opacity-80 text-sm leading-relaxed"></p>
-                        <button id="retry-btn" class="text-xs uppercase tracking-widest font-semibold border border-current/10 px-4 py-2 rounded-full hover:bg-current/5 transition-colors">
+                        <p id="error-message" class="opacity-90 text-sm font-medium leading-relaxed"></p>
+                        <button id="retry-btn" class="text-xs uppercase tracking-widest font-bold bg-red-500/10 hover:bg-red-500/20 px-5 py-2.5 rounded-full transition-colors">
                             Try Again
                         </button>
                     </div>
@@ -174,30 +175,39 @@
             <div id="result-card" class="hidden apple-card p-8 rounded-[2rem] shadow-2xl animate-slide-up">
                 <div class="space-y-8">
                     <div class="flex items-start justify-between">
-                        <div class="space-y-2">
+                        <div class="flex flex-col gap-2">
                             <h3 id="result-title" class="text-3xl font-semibold tracking-tight"></h3>
-                            <div class="flex items-center gap-3">
+                            <div class="flex flex-wrap items-center gap-2">
                                 <span id="result-badge" class="text-[10px] uppercase tracking-widest opacity-40 font-bold border border-current/10 px-2 py-0.5 rounded-full"></span>
                                 <span id="cache-indicator" class="hidden text-[10px] uppercase tracking-widest opacity-40 font-bold border border-current/10 px-2 py-0.5 rounded-full">Cached</span>
                             </div>
                         </div>
                     </div>
 
-                    <div id="result-content" class="prose dark:prose-invert max-w-none opacity-80 text-lg leading-relaxed space-y-4"></div>
+                    <div class="space-y-6">
+                        <div id="result-content" class="prose dark:prose-invert max-w-none opacity-90 text-xl font-medium leading-relaxed tracking-tight"></div>
+
+                        <!-- Source Bubble -->
+                        <div>
+                            <a id="source-pill" href="#" target="_blank" class="hidden inline-flex items-center gap-2.5 px-4 py-2 bg-current/[0.04] hover:bg-current/[0.08] border border-current/[0.08] rounded-full transition-all hover:scale-[1.02] active:scale-95 w-max">
+                                <div class="w-5 h-5 rounded bg-white p-0.5 flex items-center justify-center shadow-sm">
+                                    <img id="source-favicon" src="" alt="Source Icon" class="w-full h-full object-contain" />
+                                </div>
+                                <span id="source-name" class="text-sm font-semibold opacity-90 tracking-wide"></span>
+                                <i data-lucide="external-link" class="w-3.5 h-3.5 opacity-50 ml-0.5"></i>
+                            </a>
+                        </div>
+                    </div>
 
                     <div class="flex flex-wrap gap-3 md:gap-4 pt-8 border-t border-current/5">
-                        <button id="copy-btn" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 md:py-2 bg-current/5 hover:bg-current/10 rounded-full text-sm transition-colors">
+                        <button id="copy-btn" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 md:py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:opacity-90 transition-colors">
                             <i data-lucide="copy" class="w-4 h-4"></i>
                             Copy
                         </button>
-                        <button id="share-btn" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 md:py-2 bg-current/5 hover:bg-current/10 rounded-full text-sm transition-colors">
+                        <button id="share-btn" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 md:py-2 bg-current/5 hover:bg-current/10 rounded-full text-sm font-medium transition-colors">
                             <i data-lucide="share" class="w-4 h-4"></i>
                             Share
                         </button>
-                        <a id="wiki-link" href="#" target="_blank" class="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 md:py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:opacity-90 transition-colors">
-                            View Wikipedia
-                            <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
-                        </a>
                     </div>
                 </div>
             </div>

@@ -144,17 +144,6 @@ class LanguageManager {
         });
 
         // Update Text Elements
-        const elements = {
-            'ui-hero-title': t.heroTitle,
-            'ui-hero-subtitle': t.heroSubtitle,
-            'topic': ['placeholder', t.placeholder],
-            'search-btn': t.askBtn,
-            'clear-history': t.clear,
-            'copy-btn': [null, t.copy, 'copy'], // [type, text, icon_name] - custom handling needed
-            'share-btn': [null, t.share, 'share'],
-            'wiki-link': [null, t.viewWiki, 'arrow-up-right']
-        };
-
         const heroTitle = document.getElementById('ui-hero-title');
         if (heroTitle) heroTitle.textContent = t.heroTitle;
         
@@ -176,9 +165,6 @@ class LanguageManager {
         
         const shareBtn = document.getElementById('share-btn');
         if (shareBtn) shareBtn.innerHTML = `<i data-lucide="share" class="w-4 h-4"></i> ${t.share}`;
-
-        const wikiLink = document.getElementById('wiki-link');
-        if (wikiLink) wikiLink.innerHTML = `${t.viewWiki} <i data-lucide="arrow-up-right" class="w-4 h-4"></i>`;
 
         const recentTitle = document.querySelector('#history-panel h3');
         if (recentTitle) recentTitle.textContent = t.recentSearches;
@@ -350,7 +336,9 @@ class QuickWikiApp {
             cacheIndicator: document.getElementById('cache-indicator'),
             copyBtn: document.getElementById('copy-btn'),
             shareBtn: document.getElementById('share-btn'),
-            wikiLink: document.getElementById('wiki-link')
+            sourcePill: document.getElementById('source-pill'),
+            sourceFavicon: document.getElementById('source-favicon'),
+            sourceName: document.getElementById('source-name')
         };
         this.init();
     }
@@ -416,7 +404,7 @@ class QuickWikiApp {
         const wrapper = document.getElementById('search-wrapper');
         if (wrapper) {
             wrapper.classList.remove('min-h-screen', 'justify-center');
-            wrapper.classList.add('pt-24', 'pb-4'); // Even smaller gap
+            wrapper.classList.add('pt-36', 'pb-8'); // Larger gap from header
         }
 
         if (this.elements.heroSection) this.elements.heroSection.classList.add('hidden');
@@ -471,7 +459,7 @@ class QuickWikiApp {
         const wrapper = document.getElementById('search-wrapper');
         if (wrapper) {
             wrapper.classList.remove('min-h-screen', 'justify-center');
-            wrapper.classList.add('pt-24', 'pb-4');
+            wrapper.classList.add('pt-36', 'pb-8');
         }
 
         const wordCount = summary.split(' ').length;
@@ -481,12 +469,33 @@ class QuickWikiApp {
         if (this.elements.resultBadge) this.elements.resultBadge.innerHTML = `${t.agentAnalysis} &bull; ${wordCount} ${t.words}`;
         if (this.elements.resultContent) this.elements.resultContent.innerHTML = summary;
         
-        if (this.elements.wikiLink) {
+        if (this.elements.sourcePill) {
             if (originalUrl) {
-                this.elements.wikiLink.href = originalUrl;
-                this.elements.wikiLink.classList.remove('hidden');
+                this.elements.sourcePill.href = originalUrl;
+                this.elements.sourcePill.classList.remove('hidden');
+                this.elements.sourcePill.classList.add('inline-flex');
+                
+                try {
+                    const urlObj = new URL(originalUrl);
+                    let hostname = urlObj.hostname.replace(/^www\./, '');
+                    
+                    if (this.elements.sourceFavicon) {
+                        this.elements.sourceFavicon.src = `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+                    }
+                    if (this.elements.sourceName) {
+                        // Zformátuj název (např. cs.wikipedia.org -> Wikipedia)
+                        if (hostname.includes('wikipedia.org')) {
+                            this.elements.sourceName.textContent = 'Wikipedia';
+                        } else {
+                            this.elements.sourceName.textContent = hostname;
+                        }
+                    }
+                } catch (e) {
+                    if (this.elements.sourceName) this.elements.sourceName.textContent = t.viewWiki;
+                }
             } else {
-                this.elements.wikiLink.classList.add('hidden');
+                this.elements.sourcePill.classList.add('hidden');
+                this.elements.sourcePill.classList.remove('inline-flex');
             }
         }
 
