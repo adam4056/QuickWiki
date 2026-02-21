@@ -8,70 +8,80 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Multi-language fallback logic: Primary -> English (if not primary) -> Spanish (if not primary/en)
+        let context = "";
+        let sourceUrl = "";
+        let sourceTitle = "";
+
+        // 1. ZKUSÍME WIKIPEDII
         const fallbackChain = [primaryLang];
         if (primaryLang !== 'en') fallbackChain.push('en');
-        if (!fallbackChain.includes('es')) fallbackChain.push('es');
-
-        let bestMatchTitle = null;
-        let finalLang = primaryLang;
-        let extractText = null;
 
         for (const lang of fallbackChain) {
-            const searchRes = await fetch(
+            const wikiSearch = await fetch(
                 `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=1`,
                 { headers: { 'User-Agent': 'QuickWiki/1.0' } }
             );
-
-            if (!searchRes.ok) continue;
-            const searchData = await searchRes.json();
-            const results = searchData.query.search;
-
-            if (results && results.length > 0) {
-                const title = results[0].title;
-                
-                // Try to get extract for this title
-                const extractRes = await fetch(
+            const searchData = await wikiSearch.json();
+            
+            if (searchData.query?.search?.length > 0) {
+                const title = searchData.query.search[0].title;
+                const wikiExtract = await fetch(
                     `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(title)}&redirects=1`,
                     { headers: { 'User-Agent': 'QuickWiki/1.0' } }
                 );
+                const extractData = await wikiExtract.json();
+                const pages = extractData.query.pages;
+                const pageId = Object.keys(pages)[0];
+                const text = pages[pageId].extract;
 
-                if (extractRes.ok) {
-                    const extractData = await extractRes.json();
-                    const pages = extractData.query.pages;
-                    const pageId = Object.keys(pages)[0];
-                    const text = pages[pageId].extract;
-
-                    if (text && text.length > 100) { // Ensure we have actual content
-                        bestMatchTitle = title;
-                        finalLang = lang;
-                        extractText = text;
-                        break; // Found it!
-                    }
+                if (text && text.length > 200) {
+                    context = text.slice(0, 3000);
+                    sourceTitle = title;
+                    sourceUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+                    break;
                 }
             }
         }
 
-        if (!extractText) {
-            res.status(404).json({ error: 'No suitable article found even in fallbacks.' });
+        // 2. POKUD WIKI SELŽE, NEBO PRO LEPŠÍ PODLOŽENOST, POUŽIJEME BRAVE SEARCH
+        if (!context && process.env.BRAVE_API_KEY) {
+            const braveRes = await fetch(
+                `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(topic + " definition summary")}&count=3`,
+                {
+                    headers: { 
+                        'Accept': 'application/json',
+                        'X-Subscription-Token': process.env.BRAVE_API_KEY 
+                    }
+                }
+            );
+            
+            if (braveRes.ok) {
+                const braveData = await braveRes.json();
+                const results = braveData.web?.results || [];
+                if (results.length > 0) {
+                    context = results.map(r => `${r.title}: ${r.description}`).join("\n\n");
+                    sourceTitle = results[0].title;
+                    sourceUrl = results[0].url;
+                }
+            }
+        }
+
+        if (!context) {
+            res.status(404).json({ error: 'Pojem nebyl nalezen v žádném důvěryhodném zdroji.' });
             return;
         }
 
-        // 3. Truncate text aggressively to save context/tokens
-        const truncatedText = extractText.slice(0, 3000);
-
-        // 4. Groq API call
+        // 3. AI GENERACE (GROQ)
         const langNames = { 'en': 'English', 'cs': 'Czech', 'de': 'German', 'es': 'Spanish' };
         const targetLangName = langNames[primaryLang] || 'English';
 
-        const systemPrompt = `You are an intelligent knowledge agent. Provide a definition based ONLY on the provided Wikipedia context. 
-If the context is in a different language than requested, translate the core facts into ${targetLangName}.
-
-Constraints:
-- Respond in ${targetLangName}.
-- Max 75 words.
-- Format: HTML (<p>, <strong>).
-- Use ONLY provided facts. If facts are missing, be honest.`;
+        const systemPrompt = `Jsi terminologický expert pro video editory. Tvým úkolem je vysvětlit pojem bleskově a přesně.
+        
+        Pravidla:
+        - Jazyk: ${targetLangName}.
+        - LIMIT: Max 25 slov (striktně).
+        - FORMÁT: Čistý text v <p>, klíčová slova v <strong>.
+        - ZDROJ: Použij výhradně přiložený kontext. Pokud je to Brave Search, syntetizuj nejdůležitější fakta.`;
       
         const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -83,56 +93,23 @@ Constraints:
                 model: 'llama-3.3-70b-versatile',
                 messages: [
                     { role: 'system', content: systemPrompt },
-                    { role: 'user', content: `Topic: ${topic}\nContext: ${truncatedText}` }
+                    { role: 'user', content: `Pojem: ${topic}\nKontext: ${context}` }
                 ],
-                temperature: 0.3,
-                max_tokens: 300,
+                temperature: 0.2,
             }),
         });
-
-        if (!groqRes.ok) throw new Error('Groq API Error');
 
         const groqData = await groqRes.json();
         const htmlOutput = groqData.choices?.[0]?.message?.content;
 
-        const originalUrl = `https://${finalLang}.wikipedia.org/wiki/${encodeURIComponent(bestMatchTitle.replace(/ /g, '_'))}`;
         res.status(200).json({ 
             summary: htmlOutput, 
-            originalUrl,
-            title: bestMatchTitle,
-            sourceLang: finalLang
+            originalUrl: sourceUrl,
+            title: sourceTitle
         });
 
     } catch (err) {
-        res.status(500).json({ error: 'Agent error', detail: err.message });
+        console.error('API Error:', err);
+        res.status(500).json({ error: 'Chyba při zpracování pojmu.' });
     }
 }
-
-    } catch (err) {
-      console.error('Error in summarize API:', err);
-      
-      // Handle specific error types
-      if (err.message.includes('Rate limit')) {
-        res.status(429).json({ 
-          error: 'Service temporarily overloaded. Please try again in a few seconds.',
-          detail: err.message
-        });
-      } else if (err.message.includes('Wikipedia')) {
-        res.status(503).json({ 
-          error: 'Wikipedia service temporarily unavailable',
-          detail: err.message
-        });
-      } else if (err.message.includes('Groq API')) {
-        res.status(503).json({ 
-          error: 'AI summarization service temporarily unavailable',
-          detail: err.message
-        });
-      } else {
-        res.status(500).json({ 
-          error: 'Internal server error', 
-          detail: err.message 
-        });
-      }
-    }
-  }
-  
