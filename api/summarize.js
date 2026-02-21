@@ -151,7 +151,7 @@ export default async function handler(req, res) {
                     throw new Error('GEMINI_API_KEY není k dispozici.');
                 }
 
-                const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-preview:generateContent?key=${geminiApiKey}`, {
+                const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
