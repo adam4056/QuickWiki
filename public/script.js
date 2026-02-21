@@ -275,8 +275,8 @@ class HistoryManager {
                 historyItem.innerHTML = `
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
-                            <p class="font-medium text-sm truncate opacity-80 group-hover:opacity-100">${item.topic}</p>
-                            <span class="text-[8px] bg-current/10 px-1 rounded opacity-40 uppercase font-bold">${item.lang}</span>
+                            <p class="font-medium text-[15px] truncate opacity-80 group-hover:opacity-100 transition-opacity">${item.topic}</p>
+                            <span class="text-[10px] font-semibold opacity-40 uppercase tracking-widest border border-current/10 px-2 py-0.5 rounded-full">${item.lang}</span>
                         </div>
                         <p class="text-[10px] uppercase tracking-widest opacity-30 mt-1">${languageManager.getTranslation('historyTag')}</p>
                     </div>
@@ -404,7 +404,7 @@ class QuickWikiApp {
         const wrapper = document.getElementById('search-wrapper');
         if (wrapper) {
             wrapper.classList.remove('min-h-screen', 'justify-center');
-            wrapper.classList.add('pt-36', 'pb-8'); // Larger gap from header
+            wrapper.classList.add('pt-32', 'md:pt-40', 'pb-8'); // Larger gap from header
         }
 
         if (this.elements.heroSection) this.elements.heroSection.classList.add('hidden');
@@ -459,7 +459,7 @@ class QuickWikiApp {
         const wrapper = document.getElementById('search-wrapper');
         if (wrapper) {
             wrapper.classList.remove('min-h-screen', 'justify-center');
-            wrapper.classList.add('pt-36', 'pb-8');
+            wrapper.classList.add('pt-32', 'md:pt-40', 'pb-8');
         }
 
         const wordCount = summary.split(' ').length;
