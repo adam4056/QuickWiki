@@ -8,104 +8,125 @@ export default async function handler(req, res) {
     }
 
     try {
-        let context = "";
-        let sourceUrl = "";
-        let sourceTitle = "";
+        let wikiContext = "";
+        let wikiSourceUrl = "";
+        let wikiSourceTitle = "";
 
-        // 1. ZKUSÍME WIKIPEDII
-        // Prvně zkusíme vyhledat na české, až potom na anglické Wikipedii (zajišťuje nalezení lokálních termínů jako Vojtěch Žižka)
-        const fallbackChain = [];
-        if (primaryLang !== 'cs') fallbackChain.push(primaryLang);
-        fallbackChain.push('cs');
-        if (primaryLang !== 'en') fallbackChain.push('en');
-        // Příklad pro primaryLang='cs': ['cs', 'en']
-        // Příklad pro primaryLang='en': ['en', 'cs']
-        // Deduplikace jazyků:
-        const uniqueFallbackChain = [...new Set(fallbackChain)];
+        let braveContext = "";
+        let braveSourceUrl = "";
+        let braveSourceTitle = "";
 
-        for (const lang of uniqueFallbackChain) {
-            const wikiSearch = await fetch(
-                `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=1`,
-                { headers: { 'User-Agent': 'QuickWiki/1.0' } }
-            );
-            const searchData = await wikiSearch.json();
-            
-            if (searchData.query?.search?.length > 0) {
-                const title = searchData.query.search[0].title;
-                const snippet = searchData.query.search[0].snippet;
-                
-                // Měkké ověření relevance - alespoň část zadaného textu by měla být v názvu článku (či začátku textu).
-                // Řeší problém "bottlecap" (vrací Tomaše Mikolova) nebo "Vojta Žižka" (vrací Jana Žižku).
-                const topicWords = topic.toLowerCase().split(/\s+/).filter(w => w.length > 2); // Filtrujeme spojky atp
-                const titleLower = title.toLowerCase();
-                
-                // Zkontrolujeme, zda alespoň jedno z delších hledaných slov je v titulku 
-                const isRelevantTitle = topicWords.length === 0 || topicWords.some(word => titleLower.includes(word));
-                
-                if (!isRelevantTitle) {
-                    // Pokud je titulek úplně irelevantní (ani jedno shoda slova), přeskočíme tento výsledek
-                    // Může se jednat o článek, kde je slovo pouze zmíněno hluboko v textu, což u 25slovních definic nechceme
-                    // Například: Hledá se "Bottlecap", najde se "Tomáš Mikolov", v názvu shoda není -> přeskočí se na Brave/další jazyk
-                    continue;
-                }
+        // 1. ZKUSÍME WIKIPEDII (Spustíme asynchronně)
+        const fetchWiki = async () => {
+            const fallbackChain = [];
+            if (primaryLang !== 'cs') fallbackChain.push(primaryLang);
+            fallbackChain.push('cs');
+            if (primaryLang !== 'en') fallbackChain.push('en');
+            const uniqueFallbackChain = [...new Set(fallbackChain)];
 
-                const wikiExtract = await fetch(
-                    `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(title)}&redirects=1`,
-                    { headers: { 'User-Agent': 'QuickWiki/1.0' } }
-                );
-                const extractData = await wikiExtract.json();
-                const pages = extractData.query.pages;
-                const pageId = Object.keys(pages)[0];
-                const text = pages[pageId].extract;
+            for (const lang of uniqueFallbackChain) {
+                try {
+                    const wikiSearch = await fetch(
+                        `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=1`,
+                        { headers: { 'User-Agent': 'QuickWiki/1.0' } }
+                    );
+                    const searchData = await wikiSearch.json();
+                    
+                    if (searchData.query?.search?.length > 0) {
+                        const title = searchData.query.search[0].title;
+                        
+                        const topicWords = topic.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+                        const titleLower = title.toLowerCase();
+                        
+                        const isRelevantTitle = topicWords.length === 0 || topicWords.some(word => titleLower.includes(word));
+                        
+                        if (!isRelevantTitle) {
+                            continue;
+                        }
 
-                if (text && text.length > 200) {
-                    context = text.slice(0, 3000);
-                    sourceTitle = title;
-                    sourceUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
-                    break;
-                }
-            }
-        }
+                        const wikiExtract = await fetch(
+                            `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(title)}&redirects=1`,
+                            { headers: { 'User-Agent': 'QuickWiki/1.0' } }
+                        );
+                        const extractData = await wikiExtract.json();
+                        const pages = extractData.query.pages;
+                        const pageId = Object.keys(pages)[0];
+                        const text = pages[pageId].extract;
 
-        // 2. POKUD WIKI SELŽE, NEBO PRO LEPŠÍ PODLOŽENOST, POUŽIJEME BRAVE SEARCH
-        if (!context && process.env.BRAVE_API_KEY) {
-            const braveRes = await fetch(
-                `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(topic + " definition summary")}&count=3`,
-                {
-                    headers: { 
-                        'Accept': 'application/json',
-                        'X-Subscription-Token': process.env.BRAVE_API_KEY 
+                        if (text && text.length > 200) {
+                            wikiContext = text.slice(0, 3000);
+                            wikiSourceTitle = title;
+                            wikiSourceUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+                            break;
+                        }
                     }
-                }
-            );
-            
-            if (braveRes.ok) {
-                const braveData = await braveRes.json();
-                const results = braveData.web?.results || [];
-                if (results.length > 0) {
-                    context = results.map(r => `${r.title}: ${r.description}`).join("\n\n");
-                    sourceTitle = results[0].title;
-                    sourceUrl = results[0].url;
+                } catch (e) {
+                    console.error(`Wiki fetch error for lang ${lang}:`, e);
                 }
             }
-        }
+        };
 
-        if (!context) {
-            res.status(404).json({ error: 'Pojem nebyl nalezen v žádném důvěryhodném zdroji.' });
+        // 2. SOUBĚŽNĚ ZKUSÍME BRAVE SEARCH (Není to už fallback, ale rovnocenný zdroj)
+        const fetchBrave = async () => {
+            if (process.env.BRAVE_API_KEY) {
+                try {
+                    const braveRes = await fetch(
+                        `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(topic)}&count=4`,
+                        {
+                            headers: { 
+                                'Accept': 'application/json',
+                                'X-Subscription-Token': process.env.BRAVE_API_KEY 
+                            }
+                        }
+                    );
+                    
+                    if (braveRes.ok) {
+                        const braveData = await braveRes.json();
+                        const results = braveData.web?.results || [];
+                        if (results.length > 0) {
+                            // Vezmeme obsah z více relevantních stránek a spojíme ho
+                            braveContext = results.map(r => `${r.title}: ${r.description}`).join("\n\n");
+                            braveSourceTitle = results[0].title;
+                            braveSourceUrl = results[0].url;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Brave fetch error:', e);
+                }
+            }
+        };
+
+        // Spustíme obě vyhledávání paralelně pro maximální rychlost
+        await Promise.allSettled([fetchWiki(), fetchBrave()]);
+
+        // Spojíme kontext z obou zdrojů, aby měla AI maximální přehled
+        let combinedContext = "";
+        if (wikiContext) combinedContext += `[ENCYKLOPEDIE WIKIPEDIE]:\n${wikiContext}\n\n`;
+        if (braveContext) combinedContext += `[AKTUÁLNÍ WEB SEARCH]:\n${braveContext}\n\n`;
+
+        if (!combinedContext) {
+            res.status(404).json({ error: 'Pojem nebyl nalezen v žádném důvěryhodném zdroji (Wiki ani Web).' });
             return;
         }
 
-        // 3. AI GENERACE (GROQ)
+        // Určení hlavního zdroje pro zobrazení bublinky v UI. 
+        // Preferujeme Wiki, pokud něco našla, jinak dáme první odkaz z Webu (což bude např. web dané firmy)
+        const sourceUrl = wikiSourceUrl || braveSourceUrl;
+        const sourceTitle = wikiSourceTitle || braveSourceTitle;
+
+        // 3. AI GENERACE (GROQ / GEMINI)
         const langNames = { 'en': 'English', 'cs': 'Czech', 'de': 'German', 'es': 'Spanish' };
         const targetLangName = langNames[primaryLang] || 'English';
 
-        const systemPrompt = `Jsi terminologický expert pro video editory. Tvým úkolem je vysvětlit pojem bleskově a přesně.
+        const systemPrompt = `Jsi profesionální encyklopedický asistent. Tvým úkolem je vysvětlit zadaný pojem stručně, bleskově a přesně.
         
         Pravidla:
         - Jazyk: ${targetLangName}.
-        - LIMIT: Max 25 slov (striktně).
-        - FORMÁT: Čistý text v <p>, klíčová slova v <strong>.
-        - ZDROJ: Použij výhradně přiložený kontext. Pokud je to Brave Search, syntetizuj nejdůležitější fakta.`;
+        - LIMIT: Maximálně 25 slov (striktně).
+        - FORMÁT: Čistý text obalený v <p>, hlavní název pojmu dej do <strong>.
+        - STYL: VŽDY piš plynulou a smysluplnou definici ve formě celé věty (např. "<strong>Pojem</strong> je společnost/nástroj/osoba, která..."). 
+        - ZÁKAZ: Nikdy nesmíš pouze zkopírovat nesouvislé útržky textu nebo SEO titulky z vyhledávače. Musíš to přepsat do vlastní lidské definice.
+        - ZDROJ: K pochopení pojmu využij přiložený kontext. Syntetizuj z něj to nejdůležitější.`;
       
         let htmlOutput = null;
 
@@ -140,7 +161,7 @@ export default async function handler(req, res) {
                         },
                         contents: [{
                             role: 'user',
-                            parts: [{ text: `Pojem: ${topic}\nKontext: ${context}` }]
+                            parts: [{ text: `Pojem: ${topic}\nKontext:\n${combinedContext}` }]
                         }],
                         generationConfig: {
                             temperature: 0.2
@@ -165,7 +186,7 @@ export default async function handler(req, res) {
                         model: 'llama-3.3-70b-versatile',
                         messages: [
                             { role: 'system', content: systemPrompt },
-                            { role: 'user', content: `Pojem: ${topic}\nKontext: ${context}` }
+                            { role: 'user', content: `Pojem: ${topic}\nKontext:\n${combinedContext}` }
                         ],
                         temperature: 0.2,
                     }),
