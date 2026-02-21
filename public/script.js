@@ -125,7 +125,7 @@ class HistoryManager {
                 historyItem.innerHTML = `
                     <div class="flex-1 min-w-0">
                         <p class="font-medium text-sm truncate opacity-80 group-hover:opacity-100">${item.topic}</p>
-                        <p class="text-[10px] uppercase tracking-widest opacity-30 mt-1">${item.length} sentences</p>
+                        <p class="text-[10px] uppercase tracking-widest opacity-30 mt-1">Agent Definition</p>
                     </div>
                     <div class="flex items-center gap-4">
                         <i data-lucide="trash-2" class="w-4 h-4 opacity-0 group-hover:opacity-30 hover:!opacity-100 hover:text-red-500 transition-all p-1" onclick="historyManager.remove('${item.id}', event)"></i>
@@ -196,24 +196,10 @@ class QuickWikiApp {
     }
 
     bindEvents() {
-        if (this.elements.toggleAdvanced) this.elements.toggleAdvanced.addEventListener('click', () => this.elements.advancedSettings.classList.toggle('hidden'));
-        
-        // Custom Length Selector
-        const lengthOpts = document.querySelectorAll('.length-opt');
-        const lengthInput = document.getElementById('length');
-        lengthOpts.forEach(opt => {
-            opt.addEventListener('click', () => {
-                lengthOpts.forEach(o => o.classList.remove('bg-current/10'));
-                opt.classList.add('bg-current/10');
-                if (lengthInput) lengthInput.value = opt.dataset.value;
-            });
-        });
-
         if (this.elements.searchForm) this.elements.searchForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const topic = this.elements.topicInput.value.trim();
-            const lengthInput = document.getElementById('length');
-            const length = parseInt(lengthInput.value);
+            const length = 3; // Default value, internal now
             
             if (!topic) {
                 toastManager.show('Please enter a topic', 'warning');
@@ -236,7 +222,7 @@ class QuickWikiApp {
         if (this.elements.shareBtn) this.elements.shareBtn.addEventListener('click', async () => {
             if (navigator.share && this.currentResult) {
                 try {
-                    await navigator.share({ title: `QuickWiki: ${this.currentResult.topic}`, text: this.currentResult.summary.replace(/<[^>]*>/g, ''), url: window.location.href });
+                    await navigator.share({ title: `QuickWiki Agent: ${this.currentResult.topic}`, text: this.currentResult.summary.replace(/<[^>]*>/g, ''), url: window.location.href });
                 } catch (e) {}
             } else {
                 try {
@@ -266,7 +252,7 @@ class QuickWikiApp {
         if (this.elements.loadingState) this.elements.loadingState.classList.remove('hidden');
         if (this.elements.searchBtn) {
             this.elements.searchBtn.disabled = true;
-            this.elements.searchBtn.textContent = '...';
+            this.elements.searchBtn.textContent = 'Thinking...';
         }
 
         try {
@@ -287,7 +273,7 @@ class QuickWikiApp {
         } finally {
             if (this.elements.searchBtn) {
                 this.elements.searchBtn.disabled = false;
-                this.elements.searchBtn.textContent = 'Summarize';
+                this.elements.searchBtn.textContent = 'Ask Agent';
             }
             initializeLucideIcons();
         }
@@ -302,7 +288,7 @@ class QuickWikiApp {
         const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
         if (this.elements.resultTitle) this.elements.resultTitle.textContent = topic;
-        if (this.elements.resultBadge) this.elements.resultBadge.innerHTML = `${length} Sentences &bull; ${readTime} min read`;
+        if (this.elements.resultBadge) this.elements.resultBadge.innerHTML = `Agent Analysis &bull; ${wordCount} words`;
         if (this.elements.resultContent) this.elements.resultContent.innerHTML = summary;
         if (this.elements.wikiLink) this.elements.wikiLink.href = originalUrl;
         if (this.elements.cacheIndicator) {

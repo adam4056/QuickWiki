@@ -1,6 +1,5 @@
 export default async function handler(req, res) {
     const topic = req.query.topic;
-    const sentenceCount = parseInt(req.query.length) || 3;
 
     if (!topic) {
       res.status(400).json({ error: 'Missing parameter "topic"' });
@@ -63,8 +62,18 @@ export default async function handler(req, res) {
       // 3. Truncate text to stay within Groq API TPM limits (approx 1000 tokens)
       const truncatedText = extractText.slice(0, 4000);
 
-      // 4. Groq API call (summarization)
-      const systemPrompt = `You are a concise AI summarizer. Create exactly ${sentenceCount} short sentences (maximum 12 words each) summarizing the key points. Use simple, direct language. Return clean HTML without <html> or <body> tags. Be brief and factual only.`;
+      // 4. Groq API call (Agentic Definition)
+      const systemPrompt = `You are an intelligent knowledge agent. Your goal is to provide a clear, simple, and accurate definition based on the user's topic and the provided Wikipedia context. 
+
+Process:
+1. Analyze the context for the most essential facts.
+2. Synthesize a coherent definition that directly addresses the user's query.
+3. Ensure the tone is helpful and educational.
+
+Constraints:
+- Maximum length: 75 words.
+- Format: Return only the definition in clean HTML format (use <p> for paragraphs and <strong> for key terms). 
+- Do not include any meta-talk or introductory phrases like "Here is the definition".`;
       
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -73,13 +82,13 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'llama-3.3-70b-versatile', // Using latest flagship for better synthesis
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: truncatedText }
+            { role: 'user', content: `Topic: ${topic}\n\nContext: ${truncatedText}` }
           ],
-          temperature: 0.3,
-          max_tokens: 200,
+          temperature: 0.5,
+          max_tokens: 300,
         }),
       });
 
