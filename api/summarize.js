@@ -1,134 +1,112 @@
 export default async function handler(req, res) {
     const topic = req.query.topic;
-    const lang = req.query.lang || 'en';
+    const primaryLang = req.query.lang || 'en';
 
     if (!topic) {
-      res.status(400).json({ error: 'Missing parameter "topic"' });
-      return;
+        res.status(400).json({ error: 'Missing parameter "topic"' });
+        return;
     }
 
     try {
-      // 1. MediaWiki Search API (subdomain based on language)
-      const searchRes = await fetch(
-        `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=5`,
-        {
-          headers: {
-            'User-Agent': 'QuickWiki/1.0',
-            'Accept': 'application/json',
-          }
+        // Multi-language fallback logic: Primary -> English (if not primary) -> Spanish (if not primary/en)
+        const fallbackChain = [primaryLang];
+        if (primaryLang !== 'en') fallbackChain.push('en');
+        if (!fallbackChain.includes('es')) fallbackChain.push('es');
+
+        let bestMatchTitle = null;
+        let finalLang = primaryLang;
+        let extractText = null;
+
+        for (const lang of fallbackChain) {
+            const searchRes = await fetch(
+                `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&srlimit=1`,
+                { headers: { 'User-Agent': 'QuickWiki/1.0' } }
+            );
+
+            if (!searchRes.ok) continue;
+            const searchData = await searchRes.json();
+            const results = searchData.query.search;
+
+            if (results && results.length > 0) {
+                const title = results[0].title;
+                
+                // Try to get extract for this title
+                const extractRes = await fetch(
+                    `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(title)}&redirects=1`,
+                    { headers: { 'User-Agent': 'QuickWiki/1.0' } }
+                );
+
+                if (extractRes.ok) {
+                    const extractData = await extractRes.json();
+                    const pages = extractData.query.pages;
+                    const pageId = Object.keys(pages)[0];
+                    const text = pages[pageId].extract;
+
+                    if (text && text.length > 100) { // Ensure we have actual content
+                        bestMatchTitle = title;
+                        finalLang = lang;
+                        extractText = text;
+                        break; // Found it!
+                    }
+                }
+            }
         }
-      );
 
-      if (!searchRes.ok) {
-        const text = await searchRes.text();
-        throw new Error(`Wikipedia search API error, status: ${searchRes.status}, body: ${text}`);
-      }
-
-      const searchData = await searchRes.json();
-      const searchResults = searchData.query.search;
-
-      if (!searchResults || searchResults.length === 0) {
-        res.status(404).json({ error: 'No suitable article found.' });
-        return;
-      }
-
-      // Filter for better matches if looking for people or specific terms
-      const bestMatch = searchResults[0];
-      const bestMatchTitle = bestMatch.title;
-
-      // 2. Get article extract (plain text)
-      const extractRes = await fetch(
-        `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(bestMatchTitle)}&redirects=1`,
-        {
-          headers: {
-            'User-Agent': 'QuickWiki/1.0',
-            'Accept': 'application/json',
-          }
+        if (!extractText) {
+            res.status(404).json({ error: 'No suitable article found even in fallbacks.' });
+            return;
         }
-      );
 
-      if (!extractRes.ok) {
-        const text = await extractRes.text();
-        throw new Error(`Wikipedia extract API error, status: ${extractRes.status}, body: ${text}`);
-      }
+        // 3. Truncate text aggressively to save context/tokens
+        const truncatedText = extractText.slice(0, 3000);
 
-      const extractData = await extractRes.json();
-      const pages = extractData.query.pages;
-      const pageId = Object.keys(pages)[0];
-      const extractText = pages[pageId].extract;
+        // 4. Groq API call
+        const langNames = { 'en': 'English', 'cs': 'Czech', 'de': 'German', 'es': 'Spanish' };
+        const targetLangName = langNames[primaryLang] || 'English';
 
-      if (!extractText) {
-        res.status(500).json({ error: 'Failed to load article text from Wikipedia.' });
-        return;
-      }
-
-      // 3. Truncate text
-      const truncatedText = extractText.slice(0, 5000);
-
-      // 4. Groq API call (Agentic Definition in specific language)
-      const langNames = {
-        'en': 'English',
-        'cs': 'Czech',
-        'de': 'German',
-        'es': 'Spanish'
-      };
-      const targetLang = langNames[lang] || 'English';
-
-      const systemPrompt = `You are an intelligent knowledge agent. Your goal is to provide a clear, simple, and accurate definition based on the user's topic and the provided Wikipedia context. 
-
-IMPORTANT: Your response MUST be in ${targetLang}.
-
-Process:
-1. Analyze the context for the most essential facts.
-2. Synthesize a coherent definition that directly addresses the user's query.
-3. If the context is about a different person with a similar name, clarify that briefly but focus on the available data.
-4. Ensure the tone is helpful and educational.
+        const systemPrompt = `You are an intelligent knowledge agent. Provide a definition based ONLY on the provided Wikipedia context. 
+If the context is in a different language than requested, translate the core facts into ${targetLangName}.
 
 Constraints:
-- Maximum length: 75 words.
-- Format: Return only the definition in clean HTML format (use <p> for paragraphs and <strong> for key terms). 
-- Do not include any meta-talk or introductory phrases like "Here is the definition".`;
+- Respond in ${targetLangName}.
+- Max 75 words.
+- Format: HTML (<p>, <strong>).
+- Use ONLY provided facts. If facts are missing, be honest.`;
       
-      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Topic: ${topic}\n\nContext: ${truncatedText}` }
-          ],
-          temperature: 0.5,
-          max_tokens: 400,
-        }),
-      });
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `Topic: ${topic}\nContext: ${truncatedText}` }
+                ],
+                temperature: 0.3,
+                max_tokens: 300,
+            }),
+        });
 
-      if (!groqRes.ok) {
-        const errText = await groqRes.text();
-        if (groqRes.status === 429) {
-          res.status(429).json({ error: 'Rate limit exceeded.' });
-          return;
-        }
-        throw new Error(`Groq API error: ${groqRes.status}`);
-      }
+        if (!groqRes.ok) throw new Error('Groq API Error');
 
-      const groqData = await groqRes.json();
-      const htmlOutput = groqData.choices?.[0]?.message?.content;
+        const groqData = await groqRes.json();
+        const htmlOutput = groqData.choices?.[0]?.message?.content;
 
-      if (!htmlOutput) {
-        res.status(500).json({ error: 'Groq API did not return a response.' });
-        return;
-      }
+        const originalUrl = `https://${finalLang}.wikipedia.org/wiki/${encodeURIComponent(bestMatchTitle.replace(/ /g, '_'))}`;
+        res.status(200).json({ 
+            summary: htmlOutput, 
+            originalUrl,
+            title: bestMatchTitle,
+            sourceLang: finalLang
+        });
 
-      const originalUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(bestMatchTitle.replace(/ /g, '_'))}`;
-      res.status(200).json({ 
-        summary: htmlOutput, 
-        originalUrl,
-        title: bestMatchTitle 
-      });
+    } catch (err) {
+        res.status(500).json({ error: 'Agent error', detail: err.message });
+    }
+}
 
     } catch (err) {
       console.error('Error in summarize API:', err);

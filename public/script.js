@@ -124,8 +124,9 @@ class LanguageManager {
         this.currentLang = lang;
         localStorage.setItem('quickwiki-lang', lang);
         this.updateUI();
-        // If there's an active result, we don't re-search automatically to save API calls,
-        // but the UI labels will change.
+        
+        // Refresh history render to update language labels
+        if (historyManager) historyManager.render();
     }
 
     updateUI() {
