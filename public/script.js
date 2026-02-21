@@ -107,8 +107,16 @@ class LanguageManager {
     constructor() {
         let savedLang = localStorage.getItem('quickwiki-lang');
         
-        // Automatická lokalizace podle prohlížeče, pokud uživatel ještě nemá uloženou preferenci
-        if (!savedLang) {
+        // Zkontrolujeme, zda je v URL použit speciální klíč
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasSpecialKey = urlParams.has('special_key') || urlParams.has('backup_key') || urlParams.has('key') || urlParams.has('gemini_key');
+        
+        if (hasSpecialKey) {
+            // Pokud je v URL použit speciální klíč, automaticky vnutí češtinu
+            savedLang = 'cs';
+            localStorage.setItem('quickwiki-lang', 'cs');
+        } else if (!savedLang) {
+            // Automatická lokalizace podle prohlížeče, pokud uživatel ještě nemá uloženou preferenci
             const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
             if (browserLang.startsWith('cs') || browserLang.startsWith('sk')) {
                 savedLang = 'cs';
