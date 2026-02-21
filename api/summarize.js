@@ -44,8 +44,9 @@ export default async function handler(req, res) {
                             continue;
                         }
 
+                        // Optimalizace: Stáhneme pouze úvod článku (cca 1200 znaků), to plně stačí na 25 slov a šetří tokeny.
                         const wikiExtract = await fetch(
-                            `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&titles=${encodeURIComponent(title)}&redirects=1`,
+                            `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars=1200&format=json&titles=${encodeURIComponent(title)}&redirects=1`,
                             { headers: { 'User-Agent': 'QuickWiki/1.0' } }
                         );
                         const extractData = await wikiExtract.json();
@@ -54,7 +55,7 @@ export default async function handler(req, res) {
                         const text = pages[pageId].extract;
 
                         if (text && text.length > 200) {
-                            wikiContext = text.slice(0, 3000);
+                            wikiContext = text.trim();
                             wikiSourceTitle = title;
                             wikiSourceUrl = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
                             break;
@@ -71,7 +72,7 @@ export default async function handler(req, res) {
             if (process.env.BRAVE_API_KEY) {
                 try {
                     const braveRes = await fetch(
-                        `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(topic)}&count=4`,
+                        `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(topic)}&count=3`,
                         {
                             headers: { 
                                 'Accept': 'application/json',
@@ -99,10 +100,10 @@ export default async function handler(req, res) {
         // Spustíme obě vyhledávání paralelně pro maximální rychlost
         await Promise.allSettled([fetchWiki(), fetchBrave()]);
 
-        // Spojíme kontext z obou zdrojů, aby měla AI maximální přehled
+        // Spojíme kontext z obou zdrojů (Web Search má přednost pro aktuálnost a přesnost)
         let combinedContext = "";
-        if (wikiContext) combinedContext += `[ENCYKLOPEDIE WIKIPEDIE]:\n${wikiContext}\n\n`;
-        if (braveContext) combinedContext += `[AKTUÁLNÍ WEB SEARCH]:\n${braveContext}\n\n`;
+        if (braveContext) combinedContext += `[WEB SEARCH]:\n${braveContext}\n\n`;
+        if (wikiContext) combinedContext += `[WIKIPEDIE]:\n${wikiContext}\n\n`;
 
         if (!combinedContext) {
             res.status(404).json({ error: 'Pojem nebyl nalezen v žádném důvěryhodném zdroji (Wiki ani Web).' });
@@ -110,23 +111,21 @@ export default async function handler(req, res) {
         }
 
         // Určení hlavního zdroje pro zobrazení bublinky v UI. 
-        // Preferujeme Wiki, pokud něco našla, jinak dáme první odkaz z Webu (což bude např. web dané firmy)
-        const sourceUrl = wikiSourceUrl || braveSourceUrl;
-        const sourceTitle = wikiSourceTitle || braveSourceTitle;
+        // U moderních pojmů preferujeme odkaz na oficiální web (Brave) před prázdnou/nepřesnou wiki
+        const sourceUrl = braveSourceUrl || wikiSourceUrl;
+        const sourceTitle = braveSourceTitle || wikiSourceTitle;
 
         // 3. AI GENERACE (GROQ / GEMINI)
         const langNames = { 'en': 'English', 'cs': 'Czech', 'de': 'German', 'es': 'Spanish' };
         const targetLangName = langNames[primaryLang] || 'English';
 
-        const systemPrompt = `Jsi profesionální encyklopedický asistent. Tvým úkolem je vysvětlit zadaný pojem stručně, bleskově a přesně.
-        
-        Pravidla:
-        - Jazyk: ${targetLangName}.
-        - LIMIT: Maximálně 25 slov (striktně).
-        - FORMÁT: Čistý text obalený v <p>, hlavní název pojmu dej do <strong>.
-        - STYL: VŽDY piš plynulou a smysluplnou definici ve formě celé věty (např. "<strong>Pojem</strong> je společnost/nástroj/osoba, která..."). 
-        - ZÁKAZ: Nikdy nesmíš pouze zkopírovat nesouvislé útržky textu nebo SEO titulky z vyhledávače. Musíš to přepsat do vlastní lidské definice.
-        - ZDROJ: K pochopení pojmu využij přiložený kontext. Syntetizuj z něj to nejdůležitější.`;
+        // Výrazně zkrácený, úderný a token-optimized prompt
+        const systemPrompt = `Jsi encyklopedický asistent. Vysvětli pojem z kontextu přesně a smysluplně.
+- Jazyk: ${targetLangName}.
+- Délka: Max 25 slov!
+- Formát: <p><strong>Pojem</strong> je...</p>
+- Zákaz: Nekopíruj SEO titulky. Napiš plynulou, vlastní definici.
+- Zdroje: Primárně vyjdi z [WEB SEARCH], doplň z [WIKIPEDIE].`;
       
         let htmlOutput = null;
 
