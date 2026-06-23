@@ -1,23 +1,12 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/summarize.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
+  "functions": {
+    "api/summarize.js": {
+      "runtime": "@vercel/node@3"
     }
+  },
+  "rewrites": [
+    { "source": "/api/summarize", "destination": "/api/summarize.js" }
   ],
-  "routes": [
-    {
-      "src": "/api/summarize",
-      "dest": "/api/summarize.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
-    }
-  ]
-} 
+  "cleanUrls": true,
+  "trailingSlash": false
+}

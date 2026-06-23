@@ -2,8 +2,7 @@
 module.exports = {
   content: [
     "./public/**/*.{html,js}",
-    "./src/**/*.{css,js}",
-    "./api/**/*.{js,html}"
+    "./src/**/*.{css,js}"
   ],
   darkMode: 'class',
   theme: {

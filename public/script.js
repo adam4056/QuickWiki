@@ -17,7 +17,10 @@ const translations = {
         share: "Share",
         viewWiki: "View Source",
         historyTag: "Quick Definition",
-        linkCopied: "Link Copied"
+        linkCopied: "Link Copied",
+        feedbackTitle: "Using QuickWiki?",
+        feedbackBody: "I'm building this for you. If you use it, please drop me a short email — it truly helps me keep going.",
+        feedbackBtn: "Send an Email"
     },
     cs: {
         heroTitle: "Terminologie, bleskově.",
@@ -34,7 +37,10 @@ const translations = {
         share: "Sdílet",
         viewWiki: "Zobrazit zdroj",
         historyTag: "Rychlá definice",
-        linkCopied: "Odkaz zkopírován"
+        linkCopied: "Odkaz zkopírován",
+        feedbackTitle: "Používáš QuickWiki?",
+        feedbackBody: "Stavím to pro tebe. Pokud to používáš, napiš mi prosím krátký email — moc mi to pomůže pokračovat dál.",
+        feedbackBtn: "Napsat email"
     },
     de: {
         heroTitle: "Wissen, verfeinert.",
@@ -51,7 +57,10 @@ const translations = {
         share: "Teilen",
         viewWiki: "Wikipedia anzeigen",
         historyTag: "Agenten-Definition",
-        linkCopied: "Link kopiert"
+        linkCopied: "Link kopiert",
+        feedbackTitle: "Nutzt du QuickWiki?",
+        feedbackBody: "Ich baue das für dich. Wenn du es nutzt, schreib mir bitte eine kurze E-Mail — das hilft mir wirklich weiterzumachen.",
+        feedbackBtn: "E-Mail senden"
     },
     es: {
         heroTitle: "Conocimiento, refinado.",
@@ -68,7 +77,10 @@ const translations = {
         share: "Compartir",
         viewWiki: "Ver Wikipedia",
         historyTag: "Definición del agente",
-        linkCopied: "Enlace copiado"
+        linkCopied: "Enlace copiado",
+        feedbackTitle: "¿Usas QuickWiki?",
+        feedbackBody: "Lo construyo para ti. Si lo usas, por favor escríbeme un correo breve — de verdad me ayuda a seguir adelante.",
+        feedbackBtn: "Enviar email"
     }
 };
 
@@ -81,6 +93,54 @@ function initializeLucideIcons() {
             console.warn('Failed to initialize Lucide icons:', error);
         }
     }
+}
+
+// Sanitizace HTML výstupu z AI modelu.
+// Povolujeme pouze <p> a <strong>, vše ostatní se odstraní nebo převede na text.
+function sanitizeAiHtml(input) {
+    if (typeof input !== 'string') return '';
+    const doc = new DOMParser().parseFromString(input, 'text/html');
+    const walk = (node) => {
+        const allowed = new Set(['P', 'STRONG', 'B', 'EM', 'I', 'BR']);
+        const child = node.firstChild;
+        while (child) {
+            const next = child.nextSibling;
+            if (child.nodeType === Node.ELEMENT_NODE) {
+                const tag = child.tagName.toUpperCase();
+                // Zahodit script/style/event handlery/on* atributy.
+                if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'IFRAME' || tag === 'OBJECT') {
+                    node.removeChild(child);
+                } else {
+                    // Odstranit všechny atributy.
+                    while (child.attributes.length > 0) {
+                        child.removeAttribute(child.attributes[0].name);
+                    }
+                    if (!allowed.has(tag)) {
+                        // Rozbalit - přesunout děti před uzel a uzel odstranit.
+                        while (child.firstChild) {
+                            node.insertBefore(child.firstChild, child);
+                        }
+                        node.removeChild(child);
+                    } else {
+                        walk(child);
+                    }
+                }
+            } else if (child.nodeType === Node.COMMENT_NODE) {
+                node.removeChild(child);
+            }
+            child = next === null ? node.firstChild : next;
+        }
+    };
+    walk(doc.body);
+    return doc.body.innerHTML.trim();
+}
+
+// Převede HTML na čistý text přes dočasný element (správné rozbalení entit).
+function htmlToText(html) {
+    if (typeof html !== 'string') return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
 }
 
 // Theme Management - Automatic (System Preference)
@@ -106,17 +166,9 @@ class ThemeManager {
 class LanguageManager {
     constructor() {
         let savedLang = localStorage.getItem('quickwiki-lang');
-        
-        // Zkontrolujeme, zda je v URL použit speciální klíč
-        const urlParams = new URLSearchParams(window.location.search);
-        const hasSpecialKey = urlParams.has('special_key') || urlParams.has('backup_key') || urlParams.has('key') || urlParams.has('gemini_key');
-        
-        if (hasSpecialKey) {
-            // Pokud je v URL použit speciální klíč, automaticky vnutí češtinu
-            savedLang = 'cs';
-            localStorage.setItem('quickwiki-lang', 'cs');
-        } else if (!savedLang) {
-            // Automatická lokalizace podle prohlížeče, pokud uživatel ještě nemá uloženou preferenci
+
+        if (!savedLang) {
+            // Automatická lokalizace podle prohlížeče, pokud uživatel ještě nemá uloženou preferenci.
             const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
             if (browserLang.startsWith('cs') || browserLang.startsWith('sk')) {
                 savedLang = 'cs';
@@ -125,10 +177,10 @@ class LanguageManager {
             } else if (browserLang.startsWith('es')) {
                 savedLang = 'es';
             } else {
-                savedLang = 'en'; // Bezpečnostní fallback
+                savedLang = 'en';
             }
         }
-        
+
         this.currentLang = savedLang;
         this.init();
     }
@@ -148,14 +200,17 @@ class LanguageManager {
         this.currentLang = lang;
         localStorage.setItem('quickwiki-lang', lang);
         this.updateUI();
-        
+
         // Refresh history render to update language labels
         if (historyManager) historyManager.render();
     }
 
     updateUI() {
         const t = translations[this.currentLang];
-        
+
+        // Aktualizace <html lang> pro screen readery a SEO.
+        document.documentElement.lang = this.currentLang;
+
         // Update Buttons state
         document.querySelectorAll('.lang-btn').forEach(btn => {
             if (btn.dataset.lang === this.currentLang) {
@@ -192,6 +247,14 @@ class LanguageManager {
 
         const recentTitle = document.querySelector('#history-panel h3');
         if (recentTitle) recentTitle.textContent = t.recentSearches;
+
+        // Feedback section
+        const feedbackTitle = document.getElementById('feedback-title');
+        if (feedbackTitle) feedbackTitle.textContent = t.feedbackTitle;
+        const feedbackBody = document.getElementById('feedback-body');
+        if (feedbackBody) feedbackBody.textContent = t.feedbackBody;
+        const feedbackBtn = document.getElementById('feedback-btn');
+        if (feedbackBtn) feedbackBtn.textContent = t.feedbackBtn;
 
         initializeLucideIcons();
     }
@@ -387,7 +450,7 @@ class QuickWikiApp {
         if (this.elements.copyBtn) this.elements.copyBtn.addEventListener('click', async () => {
             if (this.currentResult) {
                 try {
-                    await navigator.clipboard.writeText(this.currentResult.summary.replace(/<[^>]*>/g, ''));
+                    await navigator.clipboard.writeText(htmlToText(this.currentResult.summary));
                     toastManager.show(languageManager.getTranslation('copied'));
                 } catch (e) { toastManager.show('Error', 'error'); }
             }
@@ -395,7 +458,7 @@ class QuickWikiApp {
         if (this.elements.shareBtn) this.elements.shareBtn.addEventListener('click', async () => {
             if (navigator.share && this.currentResult) {
                 try {
-                    await navigator.share({ title: `QuickWiki Agent: ${this.currentResult.topic}`, text: this.currentResult.summary.replace(/<[^>]*>/g, ''), url: window.location.href });
+                    await navigator.share({ title: `QuickWiki Agent: ${this.currentResult.topic}`, text: htmlToText(this.currentResult.summary), url: window.location.href });
                 } catch (e) {}
             } else {
                 try {
@@ -439,17 +502,9 @@ class QuickWikiApp {
         }
 
         try {
-            const urlParams = new URLSearchParams(window.location.search);
             const params = new URLSearchParams({
                 topic: topic,
                 lang: lang
-            });
-            
-            // Přidání případného speciálního klíče nebo dalších parametrů z URL
-            urlParams.forEach((value, key) => {
-                if (key !== 'topic' && key !== 'lang') {
-                    params.append(key, value);
-                }
             });
 
             const response = await fetch(`/api/summarize?${params.toString()}`);
@@ -465,7 +520,6 @@ class QuickWikiApp {
             this.hideAllStates();
             if (this.elements.errorMessage) this.elements.errorMessage.textContent = error.message;
             if (this.elements.errorState) this.elements.errorState.classList.remove('hidden');
-            toastManager.show(error.message, 'error');
         } finally {
             if (this.elements.searchBtn) {
                 this.elements.searchBtn.disabled = false;
@@ -491,7 +545,7 @@ class QuickWikiApp {
 
         if (this.elements.resultTitle) this.elements.resultTitle.textContent = topic;
         if (this.elements.resultBadge) this.elements.resultBadge.innerHTML = `${t.agentAnalysis} &bull; ${wordCount} ${t.words}`;
-        if (this.elements.resultContent) this.elements.resultContent.innerHTML = summary;
+        if (this.elements.resultContent) this.elements.resultContent.innerHTML = sanitizeAiHtml(summary);
         
         if (this.elements.sourcePill) {
             if (originalUrl) {

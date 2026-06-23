@@ -3,20 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickWiki</title>
-    <meta name="description" content="Intelligent AI definitions powered by Wikipedia.">
-    
+    <title>QuickWiki — Knowledge, refined.</title>
+    <meta name="description" content="Lightning-fast 25-word AI definitions for podcasters & editors. Powered by Wikipedia + AI.">
+
+    <!-- SEO / Social -->
+    <link rel="canonical" href="https://quickwiki.app/">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="QuickWiki — Knowledge, refined.">
+    <meta property="og:description" content="Lightning-fast 25-word AI definitions for podcasters & editors.">
+    <meta property="og:url" content="https://quickwiki.app/">
+    <meta property="og:site_name" content="QuickWiki">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="QuickWiki — Knowledge, refined.">
+    <meta name="twitter:description" content="Lightning-fast 25-word AI definitions for podcasters & editors.">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+
     <!-- Tailwind CSS local build -->
     <link href="output.css" rel="stylesheet">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    
-    <script
-      src="https://beamanalytics.b-cdn.net/beam.min.js"
-      data-token="cb96ed42-8a26-4211-bd9e-ca3850a371f2"
-      async
-    >
-    </script>
-    
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
     <style>
         :root {
             --bg-color: #ffffff;
@@ -25,7 +41,7 @@
             --card-border: rgba(0, 0, 0, 0.08);
             --input-bg: rgba(0, 0, 0, 0.05);
         }
-        
+
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #050505;
@@ -42,7 +58,7 @@
             color: var(--text-color);
             -webkit-font-smoothing: antialiased;
         }
-        
+
         .apple-card {
             background: var(--card-bg);
             backdrop-filter: blur(30px);
@@ -57,11 +73,28 @@
 
         /* Prevent browser autofill background */
         input:-webkit-autofill,
-        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:hover,
         input:-webkit-autofill:focus {
             -webkit-text-fill-color: var(--text-color);
             -webkit-box-shadow: 0 0 0px 1000px transparent inset;
             transition: background-color 5000s ease-in-out 0s;
+        }
+
+        /* Keyboard accessibility */
+        :focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        /* Respect reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
         }
     </style>
 </head>
@@ -117,7 +150,7 @@
                             id="topic"
                             type="text"
                             placeholder="What would you like to know?"
-                            class="flex-1 h-12 md:h-14 bg-transparent text-lg md:text-xl font-medium tracking-tight focus:outline-none placeholder-current opacity-70 focus:opacity-100 w-full px-4 md:px-0 text-center md:text-left"
+                            class="flex-1 h-12 md:h-14 bg-transparent text-lg md:text-xl font-medium tracking-tight focus:outline-none placeholder-current opacity-70 focus:opacity-100 w-full px-4 md:px-0 text-left"
                             required
                         />
                         <div class="w-full md:w-auto md:pr-1">
@@ -171,7 +204,7 @@
                 </div>
             </div>
 
-            <!-- Result Card -->
+                    <!-- Result Card -->
             <div id="result-card" class="hidden apple-card p-8 md:p-12 rounded-[2.5rem] shadow-2xl animate-slide-up border border-current/[0.05]">
                 <div class="space-y-8 md:space-y-10">
                     <div class="flex items-start justify-between">
@@ -211,8 +244,34 @@
                     </div>
                 </div>
             </div>
+
+            <!-- History Panel -->
+            <div id="history-panel" class="hidden mt-10 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs uppercase tracking-widest opacity-50 font-bold">Recent Terms</h3>
+                    <button id="clear-history" class="text-xs uppercase tracking-widest opacity-50 hover:opacity-100 font-bold transition-opacity">Clear</button>
+                </div>
+                <div id="history-list" class="space-y-2"></div>
+            </div>
         </div>
     </main>
+
+    <!-- Feedback Section -->
+    <section id="feedback-section" class="container mx-auto px-6 max-w-3xl pb-16">
+        <div class="apple-card p-8 md:p-10 rounded-[2rem] border border-current/[0.05] text-center space-y-5">
+            <div class="flex justify-center">
+                <div class="w-12 h-12 bg-current/[0.05] rounded-full flex items-center justify-center">
+                    <i data-lucide="mail" class="w-6 h-6 opacity-70"></i>
+                </div>
+            </div>
+            <h3 id="feedback-title" class="text-2xl md:text-3xl font-semibold tracking-tight">Using QuickWiki?</h3>
+            <p id="feedback-body" class="opacity-60 text-sm md:text-base leading-relaxed max-w-xl mx-auto">I'm building this for you. If you use it, please drop me a short email — it truly helps me keep going.</p>
+            <a id="feedback-btn" href="mailto:support@thequickwiki.com" class="inline-flex items-center gap-2 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:opacity-90 transition-all active:scale-95">
+                <i data-lucide="send" class="w-4 h-4"></i>
+                Send an Email
+            </a>
+        </div>
+    </section>
 
     <!-- Footer -->
     <footer class="py-20 bg-current/[0.02]">
