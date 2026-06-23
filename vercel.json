@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/summarize.js": {
-      "runtime": "@vercel/node@3"
-    }
-  },
   "rewrites": [
     { "source": "/api/summarize", "destination": "/api/summarize.js" }
   ],
