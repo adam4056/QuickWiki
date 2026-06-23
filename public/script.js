@@ -18,8 +18,8 @@ const translations = {
         viewWiki: "View Source",
         historyTag: "Quick Definition",
         linkCopied: "Link Copied",
-        feedbackTitle: "Using QuickWiki?",
-        feedbackBody: "I'm building this for you. If you use it, please drop me a short email — it truly helps me keep going.",
+        feedbackTitle: "Is anyone using this?",
+        feedbackBody: "If QuickWiki is useful to you, I'd love to know. A short email would mean a lot and help me keep going.",
         feedbackBtn: "Send an Email"
     },
     cs: {
@@ -38,8 +38,8 @@ const translations = {
         viewWiki: "Zobrazit zdroj",
         historyTag: "Rychlá definice",
         linkCopied: "Odkaz zkopírován",
-        feedbackTitle: "Používáš QuickWiki?",
-        feedbackBody: "Stavím to pro tebe. Pokud to používáš, napiš mi prosím krátký email — moc mi to pomůže pokračovat dál.",
+        feedbackTitle: "Používá to vůbec někdo?",
+        feedbackBody: "Pokud je QuickWiki pro tebe užitečný, rád bych to věděl. Krátký email by pro mě hodně znamenal a pomohl mi pokračovat dál.",
         feedbackBtn: "Napsat email"
     },
     de: {
@@ -58,8 +58,8 @@ const translations = {
         viewWiki: "Wikipedia anzeigen",
         historyTag: "Agenten-Definition",
         linkCopied: "Link kopiert",
-        feedbackTitle: "Nutzt du QuickWiki?",
-        feedbackBody: "Ich baue das für dich. Wenn du es nutzt, schreib mir bitte eine kurze E-Mail — das hilft mir wirklich weiterzumachen.",
+        feedbackTitle: "Nutzt das überhaupt jemand?",
+        feedbackBody: "Wenn QuickWiki für dich nützlich ist, würde ich gerne davon erfahren. Eine kurze E-Mail würde mir viel bedeuten und mir helfen weiterzumachen.",
         feedbackBtn: "E-Mail senden"
     },
     es: {
@@ -78,8 +78,8 @@ const translations = {
         viewWiki: "Ver Wikipedia",
         historyTag: "Definición del agente",
         linkCopied: "Enlace copiado",
-        feedbackTitle: "¿Usas QuickWiki?",
-        feedbackBody: "Lo construyo para ti. Si lo usas, por favor escríbeme un correo breve — de verdad me ayuda a seguir adelante.",
+        feedbackTitle: "¿Alguien usa esto?",
+        feedbackBody: "Si QuickWiki te resulta útil, me encantaría saberlo. Un correo breve significaría mucho para mí y me ayudaría a seguir adelante.",
         feedbackBtn: "Enviar email"
     }
 };

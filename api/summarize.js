@@ -1,6 +1,14 @@
 const WIKIPEDIA_USER_AGENT = 'QuickWiki/1.0 (https://github.com/adam4056/QuickWiki; contact: adam@example.com)';
 const OPENROUTER_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
 const FETCH_TIMEOUT_MS = 8000;
+const OPENROUTER_MAX_RETRIES = 2;
+
+// Zabrání Vercelu cachovat API odpovědi (i chybové).
+function setNoCacheHeaders(res) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('CDN-Cache-Control', 'no-store');
+    res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
+}
 
 function withTimeout(promise, ms) {
     const controller = new AbortController();
@@ -10,6 +18,74 @@ function withTimeout(promise, ms) {
 
 function clearTimeoutSafe(timer) {
     if (timer) clearTimeout(timer);
+}
+
+// Volání OpenRouter s retry logikou (free tier občas vrátí 429/5xx).
+async function callOpenRouter(systemPrompt, userContent, apiKey) {
+    let lastError = null;
+    for (let attempt = 0; attempt <= OPENROUTER_MAX_RETRIES; attempt++) {
+        const { promise, controller, timer } = withTimeout((signal) => fetch(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://quickwiki.app',
+                    'X-Title': 'QuickWiki'
+                },
+                body: JSON.stringify({
+                    model: OPENROUTER_MODEL,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userContent }
+                    ],
+                    temperature: 0.2
+                }),
+                signal
+            }
+        ), FETCH_TIMEOUT_MS * 2);
+
+        try {
+            let groqRes;
+            try {
+                groqRes = await promise;
+            } finally {
+                clearTimeoutSafe(timer);
+            }
+
+            if (!groqRes.ok) {
+                const errText = await groqRes.text().catch(() => '');
+                console.error(`OpenRouter API HTTP error (attempt ${attempt + 1}):`, groqRes.status, errText);
+                // 429 nebo 5xx -> retry s krátkou pauzou.
+                if ((groqRes.status === 429 || groqRes.status >= 500) && attempt < OPENROUTER_MAX_RETRIES) {
+                    await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                    continue;
+                }
+                throw new Error('AI provider error');
+            }
+
+            const groqData = await groqRes.json();
+            const output = groqData.choices?.[0]?.message?.content;
+            if (output) return output;
+            // Prázdná odpověď - zkus znovu.
+            lastError = new Error('Empty AI response');
+        } catch (e) {
+            clearTimeoutSafe(timer);
+            if (e.name === 'AbortError') {
+                console.warn(`OpenRouter timed out (attempt ${attempt + 1})`);
+            } else {
+                console.error(`OpenRouter error (attempt ${attempt + 1}):`, e);
+            }
+            lastError = e;
+            // Timeout nebo network error -> retry.
+            if (attempt < OPENROUTER_MAX_RETRIES) {
+                await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                continue;
+            }
+        }
+    }
+    throw lastError || new Error('AI provider error');
 }
 
 // Detekce jazyka dotazu na základě Unicode znaků, diakritiky a klíčových slov.
@@ -52,6 +128,7 @@ function scoreRelevance(query, title, snippet) {
 }
 
 export default async function handler(req, res) {
+    setNoCacheHeaders(res);
     const topic = req.query.topic;
     const uiLang = req.query.lang || 'en';
 
@@ -220,48 +297,13 @@ export default async function handler(req, res) {
         let htmlOutput = null;
 
         try {
-            const { promise, controller, timer } = withTimeout((signal) => fetch(
-                'https://openrouter.ai/api/v1/chat/completions',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://quickwiki.app',
-                        'X-Title': 'QuickWiki'
-                    },
-                    body: JSON.stringify({
-                        model: OPENROUTER_MODEL,
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            { role: 'user', content: `Term: ${topic}\nContext:\n${combinedContext}` }
-                        ],
-                        temperature: 0.2
-                    }),
-                    signal
-                }
-            ), FETCH_TIMEOUT_MS * 2);
-
-            let groqData;
-            try {
-                const groqRes = await promise;
-                if (!groqRes.ok) {
-                    console.error('OpenRouter API HTTP error:', groqRes.status, groqRes.statusText);
-                    throw new Error('AI provider error');
-                }
-                groqData = await groqRes.json();
-            } finally {
-                clearTimeoutSafe(timer);
-            }
-
-            htmlOutput = groqData.choices?.[0]?.message?.content;
+            htmlOutput = await callOpenRouter(
+                systemPrompt,
+                `Term: ${topic}\nContext:\n${combinedContext}`,
+                process.env.OPENROUTER_API_KEY
+            );
         } catch (apiError) {
-            if (apiError.name === 'AbortError') {
-                console.error('OpenRouter API timed out');
-            } else {
-                console.error('AI API Error:', apiError);
-            }
-            // Generická hláška klientovi, detail zůstává v logu.
+            console.error('AI API Error:', apiError);
             res.status(500).json({ error: 'Could not generate a definition. Try again later.' });
             return;
         }
