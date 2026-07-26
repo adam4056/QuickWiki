@@ -102,7 +102,7 @@ function sanitizeAiHtml(input) {
     const doc = new DOMParser().parseFromString(input, 'text/html');
     const walk = (node) => {
         const allowed = new Set(['P', 'STRONG', 'B', 'EM', 'I', 'BR']);
-        const child = node.firstChild;
+        let child = node.firstChild;
         while (child) {
             const next = child.nextSibling;
             if (child.nodeType === Node.ELEMENT_NODE) {
@@ -379,6 +379,63 @@ class HistoryManager {
     }
 }
 
+// Popup Manager
+class PopupManager {
+    constructor() {
+        this.popup = document.getElementById('feedback-popup');
+        if (!this.popup) return;
+        this.closeBtn = document.getElementById('popup-close');
+        this.backdrop = document.getElementById('popup-backdrop');
+        this.feedbackBtn = document.getElementById('popup-feedback-btn');
+        this.thanksMsg = document.getElementById('popup-thanks');
+
+        if (this.closeBtn) {
+            this.closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.dismiss();
+            });
+        }
+        if (this.backdrop) {
+            this.backdrop.addEventListener('click', () => this.dismiss());
+        }
+        if (this.feedbackBtn) {
+            this.feedbackBtn.addEventListener('click', () => this.submitFeedback());
+        }
+
+        // Popup se neukáže jen pokud uživatel už jednou odeslal feedback
+        if (!localStorage.getItem('quickwiki-feedback-sent')) {
+            this.popup.classList.remove('hidden');
+            initializeLucideIcons();
+        }
+    }
+
+    async submitFeedback() {
+        if (this.feedbackBtn) {
+            this.feedbackBtn.disabled = true;
+            this.feedbackBtn.textContent = 'Sending...';
+        }
+        try {
+            await fetch('/api/feedback', { method: 'POST' });
+        } catch (e) {
+            // Even on network error, show thanks — the user tried
+        }
+        if (this.feedbackBtn) {
+            this.feedbackBtn.classList.add('hidden');
+        }
+        if (this.thanksMsg) {
+            this.thanksMsg.classList.remove('hidden');
+        }
+        localStorage.setItem('quickwiki-feedback-sent', '1');
+        setTimeout(() => this.dismiss(), 3000);
+    }
+
+    dismiss() {
+        if (this.popup) {
+            this.popup.classList.add('hidden');
+        }
+    }
+}
+
 // Toast Manager
 class ToastManager {
     constructor() {
@@ -590,13 +647,14 @@ class QuickWikiApp {
     }
 }
 
-let themeManager, languageManager, cacheManager, historyManager, toastManager, quickWikiApp;
+let themeManager, languageManager, cacheManager, historyManager, popupManager, toastManager, quickWikiApp;
 
 document.addEventListener('DOMContentLoaded', () => {
     themeManager = new ThemeManager();
     languageManager = new LanguageManager();
     cacheManager = new CacheManager();
     historyManager = new HistoryManager();
+    popupManager = new PopupManager();
     toastManager = new ToastManager();
     quickWikiApp = new QuickWikiApp();
     initializeLucideIcons();

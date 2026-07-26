@@ -1,6 +1,7 @@
 {
   "rewrites": [
-    { "source": "/api/summarize", "destination": "/api/summarize.js" }
+    { "source": "/api/summarize", "destination": "/api/summarize.js" },
+    { "source": "/api/feedback", "destination": "/api/feedback.js" }
   ],
   "cleanUrls": true,
   "trailingSlash": false
